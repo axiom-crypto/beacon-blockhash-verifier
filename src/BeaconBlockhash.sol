@@ -449,14 +449,14 @@ contract BeaconBlockhash {
         }
     }
 
-    /// @dev On OPStack, EIP4788 takes an L2 block timestamp as input (as
-    /// opposed to an L1 block timestamp like L1). The SSZ root returned
-    /// belongs to the block timestamp's associated L2 block's L1 origin's
-    /// *parent* beacon block root.
-    function _fetchBeaconRoot(uint256 l2BlockTimestamp) internal view returns (bytes32 sszRoot) {
+    /// @notice Fetches the beacon root for a given L1 block timestamp
+    /// @param l1BlockTimestamp The L1 block timestamp
+    /// @return sszRoot The beacon root belonging to the parent of the block
+    /// associated with `l1BlockTimestamp`.
+    function _fetchBeaconRoot(uint256 l1BlockTimestamp) internal view returns (bytes32 sszRoot) {
         /// @solidity memory-safe-assembly
         assembly {
-            mstore(0x00, l2BlockTimestamp)
+            mstore(0x00, l1BlockTimestamp)
             if iszero(staticcall(gas(), BEACON_ROOTS, 0x00, 0x20, 0x00, 0x20)) {
                 mstore(0x00, 0x1aa72f96) // error BeaconRootFetchFailed()
                 revert(0x1c, 0x04)
