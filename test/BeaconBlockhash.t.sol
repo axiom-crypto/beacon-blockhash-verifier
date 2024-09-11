@@ -61,7 +61,7 @@ contract BeaconBlockhashTest is Test {
             blockhashProof: _blockhashProof
         });
 
-        assertEq(_beaconBlockhash.readBlockhash(_blockhashProof.leaf), true);
+        assertEq(_beaconBlockhash.isBlockhashVerified(_blockhashProof.leaf), true);
     }
 
     function test_recentHistoricalBlock() public {
@@ -124,7 +124,7 @@ contract BeaconBlockhashTest is Test {
             blockhashProof: _blockhashProof
         });
 
-        assertEq(_beaconBlockhash.readBlockhash(_blockhashProof.leaf), true);
+        assertEq(_beaconBlockhash.isBlockhashVerified(_blockhashProof.leaf), true);
     }
 
     function test_historicalBlock() public {
@@ -230,6 +230,6 @@ contract BeaconBlockhashTest is Test {
             blockhashProof: _blockhashProof
         });
 
-        assertEq(_beaconBlockhash.readBlockhash(_blockhashProof.leaf), true);
+        assertEq(_beaconBlockhash.isBlockhashVerified(_blockhashProof.leaf), true);
     }
 }
