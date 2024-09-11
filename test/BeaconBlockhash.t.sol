@@ -56,7 +56,7 @@ contract BeaconBlockhashTest is Test {
         );
 
         _beaconBlockhash.verifyCurrentBlock({
-            l2BlockTimestamp: SLOT_9568225_TIMESTAMP,
+            timestamp: SLOT_9568225_TIMESTAMP,
             currentStateRootProof: _currentStateRootProof,
             blockhashProof: _blockhashProof
         });
@@ -115,7 +115,7 @@ contract BeaconBlockhashTest is Test {
         );
 
         _beaconBlockhash.verifyRecentHistoricalBlock({
-            l2BlockTimestamp: SLOT_9568225_TIMESTAMP,
+            timestamp: SLOT_9568225_TIMESTAMP,
             currentStateRootProof: _currentStateRootProof,
             historicalStateRootProof: _historicalStateRootProof,
             // historicalStateRootGIndex: 319_232,
@@ -217,7 +217,7 @@ contract BeaconBlockhashTest is Test {
         );
 
         _beaconBlockhash.verifyHistoricalBlock({
-            l2BlockTimestamp: SLOT_9568225_TIMESTAMP,
+            timestamp: SLOT_9568225_TIMESTAMP,
             currentStateRootProof: _currentStateRootProof,
             summaryRootProof: _summaryRootProof,
             // summaryRootGIndex: 3_959_423_793,

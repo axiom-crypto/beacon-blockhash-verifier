@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-// These values are the tree heights of the relevant structs. They are the most
-// likely to change across hardforks.
+// These values are the tree heights of the relevant structs. Since the most
+// likely changes across hardforks are appends to structs, these heights are the
+// probably the only fields that could require some configuring. However, a more
+// significant change to the beacon chain's data structure could require a logic
+// overhaul altogether.
 
 /// @dev There are 5 fields in the `BeaconBlock` struct. So this is
 /// ceil(log_2(5)).
@@ -80,28 +83,26 @@ contract BeaconBlockhash {
 
     error Sha256CallFailed();
 
-    /// @param l2BlockTimestamp The timestamp of the L2 block whose l1Origin's
-    /// Beacon Block root needs to be fetched.
+    /// @param timestamp The EIP-4788 timestamp
     /// @param currentStateRootProof The proof from the beacon state root into
     /// the beacon block root.
     /// @param blockhashProof The proof from the execution payload's
     /// blockhash into the beacon state root.
     function verifyCurrentBlock(
-        uint256 l2BlockTimestamp,
+        uint256 timestamp,
         SszProof calldata currentStateRootProof,
         SszProof calldata blockhashProof
     ) external {
-        bytes32 currentSszBlockRoot = _fetchBeaconRoot(l2BlockTimestamp);
+        bytes32 currentSszBlockRoot = _fetchBeaconRoot(timestamp);
 
         _verifyBeaconStateRoot({ stateRootProof: currentStateRootProof, root: currentSszBlockRoot });
 
         _verifyExecutionBlockhash({ blockhashProof: blockhashProof, root: currentStateRootProof.leaf });
 
-        _storeBlockhash(blockhashProof.leaf);
+        _storeVerifiedBlockhash(blockhashProof.leaf);
     }
 
-    /// @param l2BlockTimestamp The timestamp of the L2 block whose l1Origin's
-    /// Beacon Block root needs to be fetched.
+    /// @param timestamp The EIP-4788 timestamp
     /// @param currentStateRootProof The proof from the beacon state root into
     /// the beacon block root.
     /// @param historicalStateRootProof The proof from the historical state root
@@ -113,13 +114,13 @@ contract BeaconBlockhash {
     /// @param blockhashProof The proof from the execution payload's
     /// blockhash into the historical beacon state root.
     function verifyRecentHistoricalBlock(
-        uint256 l2BlockTimestamp,
+        uint256 timestamp,
         SszProof calldata currentStateRootProof,
         SszProof calldata historicalStateRootProof,
         uint256 historicalStateRootLocalIndex, // Relative to the beacon state root
         SszProof calldata blockhashProof
     ) external {
-        bytes32 currentSszBlockRoot = _fetchBeaconRoot(l2BlockTimestamp);
+        bytes32 currentSszBlockRoot = _fetchBeaconRoot(timestamp);
 
         _verifyBeaconStateRoot({ stateRootProof: currentStateRootProof, root: currentSszBlockRoot });
 
@@ -131,11 +132,10 @@ contract BeaconBlockhash {
 
         _verifyExecutionBlockhash({ blockhashProof: blockhashProof, root: historicalStateRootProof.leaf });
 
-        _storeBlockhash(blockhashProof.leaf);
+        _storeVerifiedBlockhash(blockhashProof.leaf);
     }
 
-    /// @param l2BlockTimestamp The timestamp of the L2 block whose l1Origin's
-    /// Beacon Block root needs to be fetched.
+    /// @param timestamp The EIP-4788 timestamp
     /// @param currentStateRootProof The proof from the beacon state root into
     /// the beacon block root.
     /// @param summaryRootProof The proof from the historical state summary root
@@ -153,7 +153,7 @@ contract BeaconBlockhash {
     /// @param blockhashProof The proof from the execution payload's
     /// blockhash into the historical beacon state root.
     function verifyHistoricalBlock(
-        uint256 l2BlockTimestamp,
+        uint256 timestamp,
         SszProof calldata currentStateRootProof,
         SszProof calldata summaryRootProof,
         uint256 stateSummaryRootLocalIndex, // Relative to the beacon state root
@@ -161,7 +161,7 @@ contract BeaconBlockhash {
         uint256 historicalStateRootLocalIndex, // Relative to the state summary root
         SszProof calldata blockhashProof
     ) external {
-        bytes32 currentSszBlockRoot = _fetchBeaconRoot(l2BlockTimestamp);
+        bytes32 currentSszBlockRoot = _fetchBeaconRoot(timestamp);
 
         _verifyBeaconStateRoot({ stateRootProof: currentStateRootProof, root: currentSszBlockRoot });
 
@@ -179,7 +179,7 @@ contract BeaconBlockhash {
 
         _verifyExecutionBlockhash({ blockhashProof: blockhashProof, root: historicalStateRootProof.leaf });
 
-        _storeBlockhash(blockhashProof.leaf);
+        _storeVerifiedBlockhash(blockhashProof.leaf);
     }
 
     /// @dev Verifies a beacon state root into a beacon block root
@@ -426,14 +426,20 @@ contract BeaconBlockhash {
         }
     }
 
-    function _storeBlockhash(bytes32 _blockhash) internal {
+    function _storeVerifiedBlockhash(bytes32 _blockhash) internal {
         /// @solidity memory-safe-assembly
         assembly {
             sstore(_blockhash, 1)
         }
     }
 
-    function readBlockhash(bytes32 _blockhash) external view returns (bool out) {
+    /// @notice Checks if a blockhash has been verified
+    /// @dev This contract uses the entire storage space of the contract as a
+    /// mapping between `blockhash`es and a `bool`. Assuming no hash collisions,
+    /// this is a safe way to store the verified blockhashes.
+    /// @param _blockhash The blockhash to check
+    /// @return out Whether the blockhash has been verified
+    function isBlockhashVerified(bytes32 _blockhash) external view returns (bool out) {
         /// @solidity memory-safe-assembly
         assembly {
             out := sload(_blockhash)
