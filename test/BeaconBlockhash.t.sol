@@ -51,6 +51,10 @@ contract BeaconBlockhashTest is Test {
             proof: blockhashProof
         });
 
+        console.log(
+            "calldata size: ", abi.encode(SLOT_9568225_TIMESTAMP, _currentStateRootProof, _blockhashProof).length + 4
+        );
+
         _beaconBlockhash.verifyCurrentBlock({
             l2BlockTimestamp: SLOT_9568225_TIMESTAMP,
             currentStateRootProof: _currentStateRootProof,
@@ -102,6 +106,13 @@ contract BeaconBlockhashTest is Test {
             leaf: 0x41b7ee50ec947f08156d9bddbaf5e5b21de9998e6dc2a53ec7f5a82bf4c9878c,
             proof: blockhashProof
         });
+
+        console.log(
+            "calldata size: ",
+            abi.encode(
+                SLOT_9568225_TIMESTAMP, _currentStateRootProof, _historicalStateRootProof, 57_088, _blockhashProof
+            ).length + 4
+        );
 
         _beaconBlockhash.verifyRecentHistoricalBlock({
             l2BlockTimestamp: SLOT_9568225_TIMESTAMP,
@@ -191,6 +202,19 @@ contract BeaconBlockhashTest is Test {
             leaf: 0x4e64288844f3ecd1994862146b90c0dda41822eaf845a5f4501ec1da028383a8,
             proof: blockhashProof
         });
+
+        console.log(
+            "calldata size: ",
+            abi.encode(
+                SLOT_9568225_TIMESTAMP,
+                _currentStateRootProof,
+                _summaryRootProof,
+                1_811_940_145,
+                _historicalStateRootProof,
+                8128,
+                _blockhashProof
+            ).length + 4
+        );
 
         _beaconBlockhash.verifyHistoricalBlock({
             l2BlockTimestamp: SLOT_9568225_TIMESTAMP,
