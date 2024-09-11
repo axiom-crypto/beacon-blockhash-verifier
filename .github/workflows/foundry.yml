@@ -1,0 +1,61 @@
+name: Foundry tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: ["main"]
+    paths:
+      - "src/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  FOUNDRY_PROFILE: ci
+  RPC_URL_1: ${{ secrets.RPC_URL_1 }}
+
+jobs:
+  check:
+    strategy:
+      fail-fast: true
+
+    name: Foundry project
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Check forge version
+        run: forge --version
+
+      - name: Check forge tree
+        run: forge tree
+
+      - name: Install solc-select and solc
+        run: |
+          pip3 install solc-select
+          solc-select use 0.8.19 --always-install
+
+      - name: Check forge fmt
+        run: forge fmt --check
+
+      - name: Run Forge build
+        run: |
+          forge build --sizes
+        id: build
+
+      - name: Run Forge tests
+        run: |
+          forge test -vvv --gas-report
+        id: test
