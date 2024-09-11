@@ -26,15 +26,6 @@ contract BeaconBlockhash {
         bytes32[] proof;
     }
 
-    struct StorageProof {
-        address _address;
-        bytes32 storageSlot;
-        bytes32 storageValue;
-        bytes blockHeader;
-        bytes[] accountProof;
-        bytes[] storageProof;
-    }
-
     uint256 internal constant SHA256_PRECOMPILE = 0x02;
     address internal constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
 
