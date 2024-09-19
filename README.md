@@ -1,5 +1,7 @@
 # Beacon Blockhash Verifier
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/license/mit)
+
 A smart contract that verifies the integrity of post-Capella historical `blockhash`es via SSZ proofs. These SSZ proofs are made possible by the introduction of SSZ beacon block roots in [EIP-4788](https://eips.ethereum.org/EIPS/eip-4788).
 
 ## Gas and Calldata Benchmarks
