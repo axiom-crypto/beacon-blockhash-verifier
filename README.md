@@ -12,11 +12,11 @@ A smart contract that verifies the integrity of post-Capella historical `blockha
 
 Valid proofs _should_ have this same calldata size (at least for the Deneb hardfork; reconfiguring the constants could yield a different calldata size).
 
-|                               | Gas  |
-| ----------------------------- | ---- |
-| verifyCurrentBlock()          | 708  |
-| verifyRecentHistoricalBlock() | 1444 |
-| verifyHistoricalBlock()       | 2436 |
+|                                 | Gas  |
+| ------------------------------- | ---- |
+| `verifyCurrentBlock()`          | 708  |
+| `verifyRecentHistoricalBlock()` | 1444 |
+| `verifyHistoricalBlock()`       | 2436 |
 
 ## SSZ Proofs
 
@@ -295,7 +295,7 @@ We know that the local index of node `y` in the `BeaconState` tree is 0. There a
 
 To navigate to the local index (relative to the BeaconState tree) of the first field of the first `HistoricalSummary` tree (whose respective `r` node is the first element in the `HistoricalSummaries` tree), we do <code>2<sup>h<sub>hs*</sub>+1+h<sub>hs</sub></sup> * LI<sub>hs</sub></code>. This is the inclusive lower bound on the local index.
 
-To get the upper bound, we add <code>historical_summaries_capacity _ 2<sup>hs</sup> = 2<sup>hs_</sup> \* 2<sup>hs</sup></code> to the lower bound. We multiply by <code>2<sup>hs</sup></code> since the capacity only refers to the quantity of `r` nodes.
+To get the upper bound, we add <code>historical*summaries_capacity * 2<sup>hs</sup> = 2<sup>hs\_</sup> \* 2<sup>hs</sup></code> to the lower bound. We multiply by <code>2<sup>hs</sup></code> since the capacity only refers to the quantity of `r` nodes.
 
 Finally, to ensure the local index refers to a `state_summary_root` and not some other field in the struct, we constrain <code>local_index % 2<sup>hs</sup> == LI<sub>ssr</sub></code>.
 
