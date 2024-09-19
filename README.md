@@ -46,7 +46,7 @@ In order to verify an SSZ proof with respect to a generalized index, we must fir
   - For a Vector or List, it is its index.
 - **Tree Height:** Height of the type's SSZ Merkle tree. This should also be the length of any Merkle proof for the type. Calculated as <code>floor(log<sub>2</sub>(generalized_index))</code>.
   - For a Container (struct), can also be calculated as <code>ceil(log<sub>2</sub>(amount_of_fields))</code>.
-  - For a Vector, can also be calculated as <code>ceil(log<sub>2</sub>(capcity))</code>.
+  - For a Vector, can also be calculated as <code>ceil(log<sub>2</sub>(capacity))</code>.
   - For a List, can also be calculated as <code>ceil(log<sub>2</sub>(max_length)) + 1</code>. The `+ 1` is for the length mix-in.
 
 During verification, the local index's binary form encodes the left/right path of the Merkle proof. The tree height will constrain the length of the Merkle proof.
@@ -299,7 +299,7 @@ To get the upper bound, we add <code>historical*summaries_capacity * 2<sup>hs</s
 
 Finally, to ensure the local index refers to a `state_summary_root` and not some other field in the struct, we constrain <code>local_index % 2<sup>hs</sup> == LI<sub>ssr</sub></code>.
 
-**So the local index constraits of a given `local_index` are:**
+**So the local index constraints of a given `local_index` are:**
 
 - a) [<code>2<sup>h<sub>hs*</sub>+1+h<sub>hs</sub></sup> * LI<sub>hs</sub></code>, <code>2<sup>h<sub>hs*</sub>+1+h<sub>hs</sub></sup> * LI<sub>hs</sub> + (2<sup>hs*</sup> * 2<sup>hs</sup>)</code>).
 - b) <code>local_index % 2<sup>hs</sup> == LI<sub>ssr</sub></code>.

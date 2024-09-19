@@ -207,7 +207,7 @@ contract BeaconBlockhashVerifier {
     ///
     /// @param stateRootProof The proof from the state root into the beacon
     /// block root.
-    /// @param beaconBlockRoot The beacon block root to comapre the proof
+    /// @param beaconBlockRoot The beacon block root to compare the proof
     /// against.
     function _verifyBeaconStateRoot(SszProof calldata stateRootProof, bytes32 beaconBlockRoot) internal view {
         if (
@@ -230,7 +230,7 @@ contract BeaconBlockhashVerifier {
     /// @dev Min local index that would be within the `state_roots` vector
     /// (inclusive)
     ///
-    /// We multiply by `STATE_ROOTS_VECTOR_LOCAL_INDEX` to nagivate to the
+    /// We multiply by `STATE_ROOTS_VECTOR_LOCAL_INDEX` to navigate to the
     /// correct subtree.
     uint256 internal constant STATE_ROOTS_VECTOR_MIN_LOCAL_INDEX =
         STATE_ROOTS_VECTOR_NODES * STATE_ROOTS_VECTOR_LOCAL_INDEX;
@@ -459,7 +459,7 @@ contract BeaconBlockhashVerifier {
     /// @param root The root to compare the proof against.
     /// @param localIndex The local index of the leaf.
     /// @param expectedHeight The height of the tree that the proof is for.
-    /// @return valid A boolean indicating whether the dervied root from the proof
+    /// @return valid A boolean indicating whether the derived root from the proof
     /// matches the `root` provided.
     function _processInclusionProofSha256(
         bytes32[] calldata proof,
