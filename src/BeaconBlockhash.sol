@@ -449,8 +449,8 @@ contract BeaconBlockhashVerifier {
 
     /// @dev Processes an inclusion proof with a SHA256 hash.
     ///
-    /// In case of an invalid proof length, we bubble up an error to be handled
-    /// by the caller.
+    /// In case of an invalid proof length, we return false which is to be
+    /// handled by the caller.
     ///
     /// In case of a failed SHA-256 call, we revert.
     ///
