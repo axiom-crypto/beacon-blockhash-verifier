@@ -4,6 +4,13 @@
 
 A smart contract that verifies the integrity of post-Capella historical `blockhash`es via SSZ proofs. These SSZ proofs are made possible by the introduction of SSZ beacon block roots in [EIP-4788](https://eips.ethereum.org/EIPS/eip-4788).
 
+## External API
+
+- `isBlockhashVerified(_blockhash)`: Returns `true` if the provided `_blockhash` has been verified before.
+- `verifyCurrentBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates the `blockhash` of block `x`.
+- `verifyRecentHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within `x - 1` and `x - 8192`.
+- `verifyHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within `x - 8193` and the first Capella block.
+
 ## Gas and Calldata Benchmarks
 
 #### Gas Report
@@ -26,8 +33,6 @@ Valid proofs _should_ have this same calldata size (at least for the Deneb hardf
 > The following sections assume an understanding of SSZ [Merkleization](https://github.com/ethereum/consensus-specs/blob/dev/ssz/merkle-proofs.md).
 
 ### Constraining the Generalized Index
-
-As new network upgrades are queued up for release, the structures behind the beacon block root may change. By the nature of SSZ merkleization, this means that the location of data within the tree may change.
 
 When verifying SSZ proofs, it is not enough to only verify the Merkle proof; the generalized index must be tightly constrained as well. Otherwise, the verification only asserts that _the piece of data exists somewhere in the beacon block structure_, not that _the piece of data lies within some field or list-like entity within the beacon block structure_.
 
@@ -76,17 +81,9 @@ pub struct BeaconBlock {
 }
 ```
 
-##### Deriving the Generalized Index Constraint
-
-The local index is constrained to be 3.
-
-The tree height is constrained to be 3 (<code>ceil(log<sub>2</sub>(5))</code>).
-
-<br><br>
-
 Once at the state root, the rest of the segments break down into three separate cases (directly mapping to the three entrypoints of the contract).
 
-#### SSZ beacon block root and blockhash being proven are for the same slot
+#### SSZ beacon block root and blockhash being proven are for the same slot (`verifyCurrentBlock()`)
 
 This is by far the simplest proof. We will simply want another segment to the `latest_execution_payload_header.blockhash` field of the state.
 
@@ -122,29 +119,16 @@ pub struct ExecutionPayloadHeader {
 }
 ```
 
-##### Deriving the Generalized Index Constraint
+##### Generalized Index Constraints
 
-![image](https://github.com/user-attachments/assets/b45ffad8-db4e-469c-82a1-e63e0db41a0b)
-![image](https://github.com/user-attachments/assets/2848dc9c-2c8a-4817-9259-feaa50c5c898)
+Given `BeaconBlock` Root for slot `n` and some `blockhash` to prove for slot `x` where `x == n`.
 
-Since this proof is proving into the beacon state root, we will want the local index of node `b` relative to the `BeaconState` tree. We trivially know the local indices of node `ep` relative to the `BeaconState` tree and node `b` relative to the `ExecutionPayload` tree and the tree heights of the `ExecutionPayload` and `BeaconState` trees.
+|                          | Merkleized Data Structure  | Leaf Node          | Root Node          | Local Index Constraint(s) | Tree Height Constraint |
+| ------------------------ | -------------------------- | ------------------ | ------------------ | ------------------------- | ---------------------- |
+| `BeaconState` Root Proof | `BeaconBlock` for slot `n` | `BeaconState` Root | `BeaconBlock` Root | `LI == 3`                 | 3                      |
+| Blockhash Proof          | `BeaconState` for slot `n` | `blockhash`        | `BeaconState` Root | `LI == 780`               | 10                     |
 
-- <code>LI<sub>ep</sub> = 24</code>
-- <code>LI<sub>b</sub> = 12</code> (relative to `ExecutionPayload` tree)
-- <code>h<sub>bs</sub> = ceil(log<sub>2</sub>(28)) = 5</code>
-- <code>h<sub>ep</sub> = ceil(log<sub>2</sub>(17)) = 5</code>
-
-We know that the local index of node `y` in the `BeaconState` tree is 0. There are <code>2<sup>h<sub>ep</sub></sup></code> nodes in each subtree at the level of the execution payload subtree. Another way to think of this is for every node at the layer of the `BeaconState` tree, there are <code>2<sup>h<sub>ep</sub></sup></code> nodes at the layer of the `ExecutionPayload` tree.
-
-To navigate to the local index (relative to the `BeaconState` tree) of the first field of `ExecutionPayload` tree, we do <code>2<sup>h<sub>ep</sub></sup> \* LI<sub>ep</sub></code>.
-
-To navigate to the local index (relative to the `BeaconState` tree) of node `b` of `ExecutionPayload` tree, we do <code>2<sup>h<sub>ep</sub></sup> \* LI<sub>ep</sub> + LI<sub>b</sub></code>.
-
-**So the local index constraint is <code>2<sup>h<sub>ep</sub></sup> \* LI<sub>ep</sub> + LI<sub>b</sub></code>**.
-
-**The tree height constraint is simply <code>h<sub>ep</sub> + h<sub>bs</sub></code>**.
-
-#### SSZ beacon block root is within the past 8192 slots of the blockhash being proven
+#### SSZ beacon block root is within the past 8192 slots of the blockhash being proven (`verifyRecentHistoricalBlock()`)
 
 In this case, the historic state root we are interested in lies in the `state_roots` vector. Its index within the vector can be calculated with `historic_state_root_slot % 8192`. The proof from an index within the `state_roots` vector to the current state root will form a second segment.
 
@@ -190,31 +174,15 @@ pub struct ExecutionPayloadHeader {
 
 For the full proof to be valid, all segments must be valid merkle proofs. Additionally, the root of segment 3 must be the leaf of segment 2 and the root of segment 2 must be the leaf of segment 1.
 
-##### Deriving the Generalized Index Constraint
+##### Generalized Index Constraints
 
-There are two segments whose constraints remain to be derived here. The final segment’s constraints are the same as described [here](#Deriving-the-Generalized-Index-Constraint-1).
+Given `BeaconBlock` Root for slot `n` and some `blockhash` to prove for slot `x` where `n - 8192 <= x < n`.
 
-![image](https://github.com/user-attachments/assets/90d450c6-d5a2-4d7f-8b75-267967ec2165)
-
-For the second segment, we want to calculate and constrain to a range of LIs (since we want any state root within the vector to be provable). The range of LIs will be leaf nodes in the `StateRoots` tree. They must also be relative to the BeaconState tree.
-
-We trivially know the local index of the `state_roots` vector (relative to the `BeaconState` tree) and the tree heights of the `StateRoots` tree and the `BeaconState` tree.
-
-- <code>LI<sub>sr</sub> = 6</code>
-- <code>h<sub>bs</sub> = ceil(log<sub>2</sub>(28)) = 5</code>
-- <code>h<sub>sr</sub> = ceil(log<sub>2</sub>(8192)) = 13</code>
-
-We know that the local index of node `y` in the `BeaconState` tree is 0. There are <code>2<sup>h<sub>sr</sub></sup></code> nodes in each subtree at the level of the `state_roots` subtree. Another way to think of this is for every node at the layer of the `BeaconState` tree, there are <code>2<sup>h<sub>sr</sub></sup></code> nodes at the layer of the `StateRoots` tree.
-
-To navigate to the local index (relative to the `BeaconState` tree) of the first element of `StateRoots` tree, we do <code>2<sup>h<sub>sr</sub></sup> \* LI<sub>sr</sub></code>. This is the inclusive lower bound on the LI.
-
-To get the exclusive upper bound we simply have to add the Vector capacity which is <code>2<sup>h<sub>sr</sub></sup></code>.
-
-**So the local index constraint is [<code>2<sup>h<sub>sr</sub></sup> _ LI<sub>sr</sub></code>, <code>2<sup>h<sub>sr</sub></sup> _ LI<sub>sr</sub> + 2<sup>h<sub>sr</sub></sup></code>).**
-
-**The tree height constraint is simply <code>h<sub>sr</sub> + h<sub>bs</sub></code>.**
-
-<br><br>
+|                                     | Merkleized Data Structure  | Leaf Node                     | Root Node                     | Local Index Constraint(s)   | Tree Height Constraint |
+| ----------------------------------- | -------------------------- | ----------------------------- | ----------------------------- | --------------------------- | ---------------------- |
+| `BeaconState` Root Proof            | `BeaconBlock` for slot `n` | `BeaconState` Root            | `BeaconBlock` Root            | `LI == 3`                   | 3                      |
+| Historical `BeaconState` Root Proof | `BeaconState` for slot `n` | Historical `BeaconState` Root | `BeaconState` Root            | `LI < 57344`, `LI >= 49152` | 18                     |
+| Blockhash Proof                     | `BeaconState` for slot `x` | Historical `blockhash`        | Historical `BeaconState` Root | `LI == 780`                 | 10                     |
 
 #### SSZ beacon block root is NOT within the past 8192 slots of the blockhash being proven
 
@@ -272,56 +240,26 @@ pub struct ExecutionPayloadHeader {
 }
 ```
 
-##### Deriving the Generalized Index Constraint
+##### Generalized Index Constraints
 
-There are three segments for which we will need to derive the constraints (the 2nd - 4th segments).
+Given `BeaconBlock` Root for slot `n` and some `blockhash` to prove for slot `x` where `CAPELLA_INIT_SLOT <= x < n - 8192`.
 
-###### Segment 2
+|                                     | Merkleized Data Structure                        | Leaf Node                     | Root Node                     | Local Index Constraint(s)                            | Tree Height Constraint |
+| ----------------------------------- | ------------------------------------------------ | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------- |
+| `BeaconState` Root Proof            | `BeaconBlock` for slot `n`                       | `BeaconState` Root            | `BeaconBlock` Root            | `LI == 3`                                            | 3                      |
+| `HistoricalSummary` Root Proof      | `BeaconState` for slot `n`                       | `state_summary_root`          | `BeaconState` Root            | `LI >= 1811939328`, `LI < 1845493760`, `LI % 2 == 1` | 31                     |
+| Historical `BeaconState` Root Proof | `BeaconState` for merkleization slot of slot `n` | Historical `BeaconState` Root | `state_summary_root`          | `LI < 8192`, `LI >= 0`                               | 13                     |
+| Blockhash Proof                     | `BeaconState` for slot `x`                       | Historical `blockhash`        | Historical `BeaconState` Root | `LI == 780`                                          | 10                     |
 
-![image](https://github.com/user-attachments/assets/cf1c3fd8-4737-4ab0-96e9-1240ef7f1d85)
-![image](https://github.com/user-attachments/assets/4559bb7a-f948-4cd8-9b58-6500c4b25703)
+> [!NOTE]
+> To learn more about generalized indices, see [this](https://github.com/ethereum/consensus-specs) and [this](https://eth2book.info/capella/annotated-spec/).
 
-For the second segment, we are provided an LI for an `ssr` node (that is a child of some `r` node). We want to constrain that the respective `r` node is a leaf node in the `HistoricalSummaries` tree. We also want to constrain that the LI refers to a `state_summary_root` (and not some other field in the `HistoricalSummary` struct).
+### Future Maintenance
 
-We trivially know:
+As new network upgrades are queued up for release, the structures behind the beacon block root may change. By the nature of SSZ merkleization, this means that the location of data within the tree may change (as discussed [here](#constraining-the-generalized-index)).
 
-- <code>LI<sub>hs</sub> = 27</code>: Local index of `historical_summaries` relative to the `BeaconState` tree.
-- <code>LI<sub>ssr</sub> = 1</code>: Local index of `state_summary_root` relative to the `HistoricalSummary` tree.
-- <code>h<sub>bs</sub> = ceil(log<sub>2</sub>(28)) = 5</code>: Height of the `BeaconState` tree.
-- <code>h<sub>hs\*</sub> = ceil(log<sub>2</sub>(16777216)) = 24</code>: Height of the `HistoricalSummaries` List tree.
-- <code>h<sub>hs</sub> = ceil(log<sub>2</sub>(2)) = 1</code>: Height of the `HistoricalSummary` tree.
+The most likely changes are appends to structs. Whenever the amount of fields in a struct crosses over a power of two, the tree height will increase by 1. As such, the tree height will need to be reconfigured and the verifier redeployed. At the time of writing, the Pectra hardfork is queued up for release _and will very likely trigger some tree height changes_.
 
-To prove that a supposed `ssr` node is a child of some `r` node that is within the `HistoricalSummaries` List, we will want to prove that the `ssr` node is a child of the merkleization of the `r` nodes (this does NOT include the length mix-in).
+If the verifier needs to support configurations from multiple incompatible network upgrades, then the verifier will also need to be extended to branch accordingly.
 
-We know that the local index of node `y` in the `BeaconState` tree is 0. There are <code>2<sup>h<sub>hs*</sub>+1+h<sub>hs</sub></sup></code> nodes in each subtree at the level of the `HistoricalSummary` struct subtree. Another way to think of this is for every node at the layer of the `BeaconState` tree, there are <code>2<sup>h<sub>hs*</sub>+1+h<sub>hs</sub></sup></code> nodes at the layer of the `HistoricalSummary` struct tree.
-
-To navigate to the local index (relative to the BeaconState tree) of the first field of the first `HistoricalSummary` tree (whose respective `r` node is the first element in the `HistoricalSummaries` tree), we do <code>2<sup>h<sub>hs*</sub>+1+h<sub>hs</sub></sup> * LI<sub>hs</sub></code>. This is the inclusive lower bound on the local index.
-
-To get the upper bound, we add <code>historical*summaries_capacity * 2<sup>hs</sup> = 2<sup>hs\_</sup> \* 2<sup>hs</sup></code> to the lower bound. We multiply by <code>2<sup>hs</sup></code> since the capacity only refers to the quantity of `r` nodes.
-
-Finally, to ensure the local index refers to a `state_summary_root` and not some other field in the struct, we constrain <code>local_index % 2<sup>hs</sup> == LI<sub>ssr</sub></code>.
-
-**So the local index constraints of a given `local_index` are:**
-
-- a) [<code>2<sup>h<sub>hs*</sub>+1+h<sub>hs</sub></sup> * LI<sub>hs</sub></code>, <code>2<sup>h<sub>hs*</sub>+1+h<sub>hs</sub></sup> * LI<sub>hs</sub> + (2<sup>hs*</sup> * 2<sup>hs</sup>)</code>).
-- b) <code>local_index % 2<sup>hs</sup> == LI<sub>ssr</sub></code>.
-
-**The tree height constraint is <code>h<sub>bs</sub> + h<sub>hs</sub> + h<sub>hs\*</sub> + 1</code>.**
-
-###### Segment 3
-
-![image](https://github.com/user-attachments/assets/7e765db0-f810-4f54-8dd7-81dd34665a45)
-
-This proof is very simple, and, as a result, so is its LI constraints.
-
-We trivially know the height of the `StateRoots` tree:
-
-- <code>h<sub>sr</sub> = ceil(log<sub>2</sub>(8192)) = 13</code>.
-
-**The local index constraint is [`0`, <code>2<sup>h<sub>sr</sub></sup></code>).**
-
-**The tree height constraint is <code>h<sub>sr</sub></code>.**
-
-###### Segment 4
-
-The constraints for this segment are the same as described [here](#Deriving-the-Generalized-Index-Constraint-1).
+While unlikely, it is also possible that the beacon chain data undergoes a _signficant_ restructuring that throws out the current verifier logic altogether. An example of such a change is the location and scheme in which historical `BeaconState` roots are committed. This is precedented as well since before the Capella hardfork, historical `BeaconState` roots were committed to in the `historical_roots` List; however, post-Capella, they are committed to in the `historical_summaries` List.
