@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { BeaconBlockhash } from "../src/BeaconBlockhash.sol";
+import { BeaconBlockhashVerifier } from "../src/BeaconBlockhashVerifier.sol";
 
 import { Solarray } from "solarray/Solarray.sol";
 
@@ -11,7 +11,7 @@ import { console2 } from "forge-std/console2.sol";
 
 contract BeaconBlockhashTest is Test {
     address internal constant BEACON_ROOTS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
-    BeaconBlockhash public _beaconBlockhash;
+    BeaconBlockhashVerifier public _beaconBlockhash;
 
     // The actual root return will be of the parent (9568224)
     uint256 internal constant SLOT_9568225_TIMESTAMP = 1_721_642_723;
@@ -22,7 +22,7 @@ contract BeaconBlockhashTest is Test {
         0xe50667bec9fe6f0f2c93e55ec51f1e42e427f6894ce13ff3f2bb5a783c59ae7a
     );
 
-    BeaconBlockhash.SszProof _currentStateRootProof = BeaconBlockhash.SszProof({
+    BeaconBlockhashVerifier.SszProof _currentStateRootProof = BeaconBlockhashVerifier.SszProof({
         leaf: 0x5b5b58c88c8bca6a8c3901892e2dfded3ead0a67602cecb9dc0fa2fc4cc7984e,
         proof: currentStateRootProof
     });
@@ -30,7 +30,7 @@ contract BeaconBlockhashTest is Test {
     function setUp() public {
         // Block number at which parent of 9568225 is still available
         vm.createSelectFork(vm.envString("RPC_URL_1"), 20_361_365);
-        _beaconBlockhash = new BeaconBlockhash();
+        _beaconBlockhash = new BeaconBlockhashVerifier();
     }
 
     function test_currentBlock() public {
@@ -46,7 +46,7 @@ contract BeaconBlockhashTest is Test {
         blockhashProof[8] = 0x7529dfe4f3504264983ceb4c11cd3869c52a6384491d3f09315a5404656f534b;
         blockhashProof[9] = 0x026a4f79435a63b7e343a74608d99a553dea104cb3027a9645f3eed567aedd8e;
 
-        BeaconBlockhash.SszProof memory _blockhashProof = BeaconBlockhash.SszProof({
+        BeaconBlockhashVerifier.SszProof memory _blockhashProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0x1dfaf76d5bcf603cfa38b9fdd791e1a14c3701d0468b84f4bf6b7cf4c260525e,
             proof: blockhashProof
         });
@@ -97,12 +97,12 @@ contract BeaconBlockhashTest is Test {
         blockhashProof[8] = 0xa3a11facbf1d484b0ea149f901d9e563d512e15093c4b00231af68eb1e06e9db;
         blockhashProof[9] = 0x81587d91af22f2bee1f7840d06d5403c3132674c9ea3e9dceb8fc49384490369;
 
-        BeaconBlockhash.SszProof memory _historicalStateRootProof = BeaconBlockhash.SszProof({
+        BeaconBlockhashVerifier.SszProof memory _historicalStateRootProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0x7688551bb6747dc6a456a7254af5a96b6d6b1f0e6dcb1b73a9f5fd7bceaaa704,
             proof: historicalStateRootProof
         });
 
-        BeaconBlockhash.SszProof memory _blockhashProof = BeaconBlockhash.SszProof({
+        BeaconBlockhashVerifier.SszProof memory _blockhashProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0x41b7ee50ec947f08156d9bddbaf5e5b21de9998e6dc2a53ec7f5a82bf4c9878c,
             proof: blockhashProof
         });
@@ -188,17 +188,17 @@ contract BeaconBlockhashTest is Test {
         blockhashProof[8] = 0xb9116d75914722f1c89cf2bd51b11bd3167615abc265408e00822166d158b5c9;
         blockhashProof[9] = 0x51b7c46c28d41aa08cb77b8514cc413f37105d6e325095b8e06003721775da11;
 
-        BeaconBlockhash.SszProof memory _summaryRootProof = BeaconBlockhash.SszProof({
+        BeaconBlockhashVerifier.SszProof memory _summaryRootProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0xf4d009882fd5e34e2b235bb8e1727ef3a16a0797244ee209b14a7402db5cf0fc,
             proof: summaryRootProof
         });
 
-        BeaconBlockhash.SszProof memory _historicalStateRootProof = BeaconBlockhash.SszProof({
+        BeaconBlockhashVerifier.SszProof memory _historicalStateRootProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0xfd22b356591114ba21745e976f81a97bfefbfe9839d17e01adae77cc02c7268f,
             proof: historicalStateRootProof
         });
 
-        BeaconBlockhash.SszProof memory _blockhashProof = BeaconBlockhash.SszProof({
+        BeaconBlockhashVerifier.SszProof memory _blockhashProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0x4e64288844f3ecd1994862146b90c0dda41822eaf845a5f4501ec1da028383a8,
             proof: blockhashProof
         });
