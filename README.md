@@ -248,12 +248,11 @@ Given `BeaconBlock` Root for slot `n` and some `blockhash` to prove for slot `x`
 > [!NOTE]
 > To learn more about generalized indices, see [this](https://github.com/ethereum/consensus-specs) and [this](https://eth2book.info/capella/annotated-spec/).
 
-### Future Maintenance
+## Future Maintenance
 
-As new network upgrades are queued up for release, the structures behind the beacon block root may change. By the nature of SSZ merkleization, this means that the location of data within the tree may change (as discussed [here](#constraining-the-generalized-index)).
+Future Ethereum hardforks may change the format of the beacon block and beacon state, which may change the generalized indices of different fields committed to in the beacon block root as discussed [here](#constraining-the-generalized-index). There a few possible forms such a change may take:
 
-The most likely changes are appends to structs. Whenever the amount of fields in a struct crosses over a power of two, the tree height will increase by 1. As such, the tree height will need to be reconfigured and the verifier redeployed. At the time of writing, the Pectra hardfork is queued up for release _and will very likely trigger some tree height changes_.
+* The most likely type of change involves appending fields to structs in the beacon state or block. If appending fields causes the number of fields in a struct to exceed a new power of two, the SSZ tree height for Merkleization of that field will increase by 1. This means the generalized indices of the fields in the struct will also need to be updated. As of September 2024, this is expected to happen in the Pectra hard fork.
+* Another possible change is a substantial restructuring of beacon state or block fields that affects the structure of SSZ proofs for blockhashes. A historical example of this was the shift of historical `BeaconState` roots from the `historical_roots` List to the `historical_summaries` List in the Capella hardfork. A potential future example is the transition to the `StableContainer` SSZ struct proposed in [EIP-7495](https://eips.ethereum.org/EIPS/eip-7495).
 
-If the verifier needs to support configurations from multiple incompatible network upgrades, then the verifier will also need to be extended to branch accordingly.
-
-While unlikely, it is also possible that the beacon chain data undergoes a _signficant_ restructuring that throws out the current verifier logic altogether. An example of such a change is the location and scheme in which historical `BeaconState` roots are committed. This is precedented as well since before the Capella hardfork, historical `BeaconState` roots were committed to in the `historical_roots` List; however, post-Capella, they are committed to in the `historical_summaries` List.
+In both cases, the blockhash verifier logic contained in this repo will need to be updated, which we recommend to be done by updating and redeploying the contract. In addition, if the verifier needs to support configurations from multiple incompatible network upgrades, then the verifier will also need to be extended to branch accordingly.
