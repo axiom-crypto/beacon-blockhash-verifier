@@ -33,7 +33,7 @@ As described in the [spec](https://github.com/ethereum/consensus-specs) and [ann
 
 To verify an SSZ proof with respect to a generalized index, we separate it into the following two components:
 
-- **Local Index:** A 0-indexed number indicating location within the struct, calculated as `generalized_index % prev_power_of_two(generalized_index)`.
+- **Local Index:** A 0-indexed number indicating location within the structure (either struct or Vector/List), calculated as `generalized_index % prev_power_of_two(generalized_index)`.
   - For a Container (struct), this is its position in the struct.
   - For a Vector or List, it is its index.
 - **Tree Height:** Height of the type's SSZ Merkle tree. This should also be the length of any Merkle proof for the type. Calculated as <code>floor(log<sub>2</sub>(generalized_index))</code>.
