@@ -13,19 +13,13 @@ A smart contract that verifies the integrity of post-Capella historical `blockha
 
 ## Gas and Calldata Benchmarks
 
-#### Gas Report
+We report execution gas and calldata benchmarks below. Valid proofs will have same calldata sizes below as of the Deneb hardfork. These benchmarks may change as the result of future hardforks.
 
-![image](https://github.com/user-attachments/assets/16349736-1f4f-4769-b3c6-bef644dbcca5)
-
-#### Calldata Size
-
-Valid proofs _should_ have this same calldata size (at least for the Deneb hardfork; reconfiguring the constants could yield a different calldata size).
-
-|                                 | Gas  |
-| ------------------------------- | ---- |
-| `verifyCurrentBlock()`          | 708  |
-| `verifyRecentHistoricalBlock()` | 1444 |
-| `verifyHistoricalBlock()`       | 2436 |
+|                                 | Execution Gas | Calldata Size |
+| ------------------------------- | ---- | ---- |
+| `verifyCurrentBlock()`          | 64011 | 708  |
+| `verifyRecentHistoricalBlock()` | 103256 | 1444 |
+| `verifyHistoricalBlock()`       | 80896 | 2436 |
 
 ## SSZ Proofs
 
