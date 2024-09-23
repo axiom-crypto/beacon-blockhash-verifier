@@ -8,8 +8,8 @@ A smart contract that verifies the integrity of post-Capella historical `blockha
 
 - `isBlockhashVerified(_blockhash)`: Returns `true` if the provided `_blockhash` has been verified before.
 - `verifyCurrentBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates the `blockhash` of block `x`.
-- `verifyRecentHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within the range [x - 8192, x - 1].
-- `verifyHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within the range [x - 8193, CAPELLA_INIT_BLOCK].
+- `verifyRecentHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within the range `[x - 8192, x - 1]`.
+- `verifyHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within the range `[CAPELLA_INIT_BLOCK, x - 8193]`.
 
 ## Gas and Calldata Benchmarks
 
