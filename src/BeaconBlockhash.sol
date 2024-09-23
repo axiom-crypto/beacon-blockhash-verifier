@@ -26,6 +26,8 @@ uint256 constant EXECUTION_PAYLOAD_TREE_HEIGHT = 5;
 // TODO: Rename file and test to BeaconBlockhashVerifier
 /// @dev `BeaconBlockhashVerifier` verifies the integrity of post-Capella
 /// blockhashes via SSZ proofs and persists them into the contract's storage.
+///
+/// This contract is expected to be launched while the Deneb hardfork is active.
 contract BeaconBlockhashVerifier {
     struct SszProof {
         bytes32 leaf;
