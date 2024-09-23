@@ -150,7 +150,7 @@ To summarize to prove the `blockhash` for slot `x` into a `BeaconBlock` root for
 |                                     | Merkleized Data Structure  | Leaf Node                     | Root Node                     | Local Index   | Tree Height |
 | ----------------------------------- | -------------------------- | ----------------------------- | ----------------------------- | --------------------------- | ---------------------- |
 | `BeaconState` Root Proof            | `BeaconBlock` for slot `n` | `BeaconState` Root            | `BeaconBlock` Root            | 3                   | 3                      |
-| Historical `BeaconState` Root Proof | `BeaconState` for slot `n` | Historical `BeaconState` Root | `BeaconState` Root            | `LI < 57344`, `LI >= 49152` | 18                     |
+| Historical `BeaconState` Root Proof | `BeaconState` for slot `n` | Historical `BeaconState` Root | `BeaconState` Root            | `49152 + (x % 8192)` | 18                     |
 | Blockhash Proof                     | `BeaconState` for slot `x` | Historical `blockhash`        | Historical `BeaconState` Root | 780                 | 10                     |
 
 #### Beacon block root is greater than 8192 slots prior to the blockhash (`verifyHistoricalBlock()`)
@@ -207,8 +207,8 @@ To summarize, to prove the `blockhash` for slot `x` into the `BeaconBlock` root 
 |                                     | Merkleized Data Structure                        | Leaf Node                     | Root Node                     | Local Index                            | Tree Height |
 | ----------------------------------- | ------------------------------------------------ | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------- |
 | `BeaconState` Root Proof            | `BeaconBlock` for slot `n`                       | `BeaconState` Root            | `BeaconBlock` Root            | 3                                            | 3                      |
-| `HistoricalSummary` Root Proof      | `BeaconState` for slot `n`                       | `state_summary_root`          | `BeaconState` Root            | `LI >= 1811939328`, `LI < 1845493760`, `LI % 2 == 1` | 31                     |
-| Historical `BeaconState` Root Proof | `BeaconState` for merkleization slot of slot `n` | Historical `BeaconState` Root | `state_summary_root`          | `LI < 8192`, `LI >= 0`                               | 13                     |
+| `HistoricalSummary` Root Proof      | `BeaconState` for slot `n`                       | `state_summary_root`          | `BeaconState` Root            | `1811939328 + 2 * ((x - CAPELLA_INIT_SLOT) / 8192) + 1` | 31                     |
+| Historical `BeaconState` Root Proof | `BeaconState` for merkleization slot of slot `n` | Historical `BeaconState` Root | `state_summary_root`          | `x % 8192`                               | 13                     |
 | Blockhash Proof                     | `BeaconState` for slot `x`                       | Historical `blockhash`        | Historical `BeaconState` Root | 780                                          | 10                     |
 
 
