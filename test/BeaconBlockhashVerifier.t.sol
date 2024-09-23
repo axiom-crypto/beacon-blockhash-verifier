@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.24;
 
-import { BeaconBlockhashVerifier } from "../src/BeaconBlockhash.sol";
+import { BeaconBlockhashVerifier } from "../src/BeaconBlockhashVerifier.sol";
 
 import { Solarray } from "solarray/Solarray.sol";
 

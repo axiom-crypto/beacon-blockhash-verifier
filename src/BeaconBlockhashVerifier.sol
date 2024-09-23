@@ -23,7 +23,6 @@ uint256 constant STATE_ROOT_TREE_HEIGHT = 5;
 /// ceil(log_2(17)).
 uint256 constant EXECUTION_PAYLOAD_TREE_HEIGHT = 5;
 
-// TODO: Rename file and test to BeaconBlockhashVerifier
 /// @dev `BeaconBlockhashVerifier` verifies the integrity of post-Capella
 /// blockhashes via SSZ proofs and persists them into the contract's storage.
 ///
