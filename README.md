@@ -23,28 +23,17 @@ We report execution gas and calldata benchmarks below. Valid proofs will have sa
 | `verifyRecentHistoricalBlock()` | 103256 | 1444 |
 | `verifyHistoricalBlock()`       | 80896 | 2436 |
 
-## SSZ Proofs
+## Proving Ethereum blockhashes via SSZ Proofs
 
-> [!NOTE]
-> The following sections assume an understanding of SSZ [Merkleization](https://github.com/ethereum/consensus-specs/blob/dev/ssz/merkle-proofs.md).
+We now explain how we prove Ethereum blockhashes into the beacon block root with SSZ proofs. This section assumes an understanding of [SSZ Merkleization](https://github.com/ethereum/consensus-specs/blob/dev/ssz/merkle-proofs.md).
 
-### Constraining the Generalized Index
+### Local and Generalized Indices for SSZ Proofs
 
-When verifying SSZ proofs, it is not enough to only verify the Merkle proof; the generalized index must be tightly constrained as well. Otherwise, the verification only asserts that _the piece of data exists somewhere in the beacon block structure_, not that _the piece of data lies within some field or list-like entity within the beacon block structure_.
+As described in the [spec](https://github.com/ethereum/consensus-specs) and [annotated spec](https://eth2book.info/capella/annotated-spec/), verifying inclusion proofs into SSZ Merkleized data structures requires giving a valid Merkle proof into the root and also checking the correct field is chosen by constraining the **generalized index** as described [here](https://github.com/ethereum/consensus-specs/blob/dev/ssz/merkle-proofs.md#generalized-merkle-tree-index).
 
-![image](https://github.com/user-attachments/assets/c81afdc4-d2cd-468f-bc34-f258dda906e1)
+To verify an SSZ proof with respect to a generalized index, we separate it into the following two components:
 
-In the example above, if we want to prove the value at `b`, we must constrain the generalized index to be 3; otherwise, if the value at `a` had the same value, it could also be validly proven into the root.
-
-However, these generalized indices are subject to change if the underlying data structure is altered. Consider this change:
-
-![image](https://github.com/user-attachments/assets/2030f574-f6d1-4489-9778-3e2f0d6923c9)
-
-Now, the generalized index of `b` is 5.
-
-In order to verify an SSZ proof with respect to a generalized index, we must first realize that GI can be separated into two components:
-
-- **Local Index:** A 0-indexed number indicating location within the structure. These are marked as blue in the images above. Calculated as `generalized_index % prev_power_of_two(generalized_index)`.
+- **Local Index:** A 0-indexed number indicating location within the struct, calculated as `generalized_index % prev_power_of_two(generalized_index)`.
   - For a Container (struct), this is its position in the struct.
   - For a Vector or List, it is its index.
 - **Tree Height:** Height of the type's SSZ Merkle tree. This should also be the length of any Merkle proof for the type. Calculated as <code>floor(log<sub>2</sub>(generalized_index))</code>.
@@ -52,46 +41,43 @@ In order to verify an SSZ proof with respect to a generalized index, we must fir
   - For a Vector, can also be calculated as <code>ceil(log<sub>2</sub>(capacity))</code>.
   - For a List, can also be calculated as <code>ceil(log<sub>2</sub>(max_length)) + 1</code>. The `+ 1` is for the length mix-in.
 
-During verification, the local index's binary form encodes the left/right path of the Merkle proof. The tree height will constrain the length of the Merkle proof.
-
-> [!NOTE]
-> It is assumed that the most likely changes across hardfork are appends to structs. In this case, only tree heights may need to reconfigured before redeploying.
+During verification, the local index's binary representation encodes the left/right path of the Merkle proof, while the tree height constrains the length of the Merkle proof.
 
 ### Blockhash Proofs
 
-An SSZ beacon block root commits to the entire history of Ethereum blockhashes post-Altair-hardfork. Thus, a **blockhash proof** is defined as proving the validity of a historical blockhash into an SSZ beacon block further into the future.
+The beacon block root commits to the entire history of Ethereum blockhashes after the Altair hard fork via its commitment to the beacon state and the following `BeaconState` fields:
 
-_The contract in this repo only supports proving post-Merge (Capella and beyond) blockhashes._
+* `latest_execution_payload_header` -- contains the most recent Ethereum blockhash.
+* `state_roots` -- contains roots of the beacon states and hence Ethereum blockhashes for the past 8192 slots.
+* `historical_summaries` -- contains Merkle roots of state and block roots in groups of 8192 back to the Capella hard fork.
 
-To prove the validity of a blockhash, we prove the validity of nested segments individually which, when combined, build a path from the blockhash to the beacon block root.
+This contract uses SSZ proofs for entries of these fields to verify any blockhash after the Capella hard fork into a post-Deneb beacon block root. These proofs take the form of successive Merkle proofs of fields into Merkleized SSZ structs which together form a path from the blockhash in question to the beacon block root. In the rest of this section, we specify the path and the relevant local indices for each of the three cases above.
 
-Beginning at the top, the first segment is made from the merkleization of the beacon block (beacon block root) to its state_root field. The beacon block root is available in the EVM.
+In all cases, we begin by proving the `state_root` into the beacon block root, which is available in the EVM via [EIP-4788](https://eips.ethereum.org/EIPS/eip-4788). This proof has a local index of 3 and a tree height of 3.
 
 ```rust
 pub struct BeaconBlock {
       pub slot: Slot,
       pub proposer_index: ValidatorIndex,
       pub parent_root: Root,
-////  pub state_root: Root,  ////
+****  pub state_root: Root,  ****
       pub body: Root
 }
 ```
 
-Once at the state root, the rest of the segments break down into three separate cases (directly mapping to the three entrypoints of the contract).
+The remainder of the SSZ verification follows different flows for each of the three cases, which directly map to the three contract functions.
 
-#### SSZ beacon block root and blockhash being proven are for the same slot (`verifyCurrentBlock()`)
+#### Beacon block root and blockhash are for the same slot (`verifyCurrentBlock()`)
 
-This is by far the simplest proof. We will simply want another segment to the `latest_execution_payload_header.blockhash` field of the state.
+In this case, we need to prove inclusion of the `latest_execution_payload_header.blockhash` field of the `BeaconState` via the fields shown below.
 
 ```rust
 pub struct BeaconState {
-      /** snip **/
-
+      /** <...> **/
       pub next_sync_committee: SyncCommittee<SYNC_COMMITTEE_SIZE>,
-////  pub latest_execution_payload_header: ExecutionPayloadHeader,  ////
+****  pub latest_execution_payload_header: ExecutionPayloadHeader,  ****
       pub next_withdrawal_index: WithdrawalIndex,
-
-      /** snip **/
+      /** <...> **/
 }
 
 pub struct ExecutionPayloadHeader {
@@ -107,148 +93,125 @@ pub struct ExecutionPayloadHeader {
       pub timestamp: u64,
       pub extra_data: ByteList<MAX_EXTRA_DATA_BYTES>,
       pub base_fee_per_gas: U256,
-////  pub block_hash: Hash32,  ////
+****  pub block_hash: Hash32,  ****
       pub transactions_root: Root,
       pub withdrawals_root: Root,
       pub blob_gas_used: u64,
       pub excess_blob_gas: u64,
 }
 ```
+The corresponding local indices and tree heights for a proof of a `blockhash` for slot `n` into the `BeaconBlock` root for slot `n` are:
 
-##### Generalized Index Constraints
-
-Given `BeaconBlock` Root for slot `n` and some `blockhash` to prove for slot `x` where `x == n`.
-
-|                          | Merkleized Data Structure  | Leaf Node          | Root Node          | Local Index Constraint(s) | Tree Height Constraint |
+|                          | Merkleized Data Structure  | Leaf Node          | Root Node          | Local Index | Tree Height |
 | ------------------------ | -------------------------- | ------------------ | ------------------ | ------------------------- | ---------------------- |
-| `BeaconState` Root Proof | `BeaconBlock` for slot `n` | `BeaconState` Root | `BeaconBlock` Root | `LI == 3`                 | 3                      |
-| Blockhash Proof          | `BeaconState` for slot `n` | `blockhash`        | `BeaconState` Root | `LI == 780`               | 10                     |
+| `BeaconState` Root Proof | `BeaconBlock` for slot `n` | `BeaconState` Root | `BeaconBlock` Root | 3                 | 3                      |
+| Blockhash Proof          | `BeaconState` for slot `n` | `blockhash`        | `BeaconState` Root | 780               | 10                     |
 
-#### SSZ beacon block root is within the past 8192 slots of the blockhash being proven (`verifyRecentHistoricalBlock()`)
+#### Beacon block root is within the past 8192 slots of the blockhash (`verifyRecentHistoricalBlock()`)
 
-In this case, the historic state root we are interested in lies in the `state_roots` vector. Its index within the vector can be calculated with `historic_state_root_slot % 8192`. The proof from an index within the `state_roots` vector to the current state root will form a second segment.
+In this case, the historic state root we are interested in lies in the `state_roots` vector, and its index within the vector is `historic_state_root_slot % 8192`. We must first give a proof from an element of the  `state_roots` vector to the current state root:
 
 ```rust
 /// Current slot instance
 pub struct BeaconState {
-    /** snip **/
-
+    /** <...>> **/
       pub block_roots: Vector<Root, SLOTS_PER_HISTORICAL_ROOT>,
 ****  pub state_roots: Vector<Root, SLOTS_PER_HISTORICAL_ROOT>,  ****
       pub historical_roots: List<Root, HISTORICAL_ROOTS_LIMIT>,
-
-    /** snip **/
+    /** <...> **/
 }
 ```
 
-Finally, we will require the full state of the historic slot we are interested in. Then, the final segment will be a proof from the `latest_execution_payload_header.blockhash` field of the historic state into the historic state root.
+Finally, we must give a proof from the `latest_execution_payload_header.blockhash` field of the historic state into the historic state root, which uses the following fields:
 
 ```rust
 /// Historic slot instance
 pub struct BeaconState {
-    /** snip **/
-
+    /** <...> **/
       pub next_sync_committee: SyncCommittee<SYNC_COMMITTEE_SIZE>,
-////  pub latest_execution_payload_header:
-          ExecutionPayloadHeader<BYTES_PER_LOGS_BLOOM, MAX_EXTRA_DATA_BYTES>,  ////
+****  pub latest_execution_payload_header:
+          ExecutionPayloadHeader<BYTES_PER_LOGS_BLOOM, MAX_EXTRA_DATA_BYTES>,  ****
       pub next_withdrawal_index: WithdrawalIndex,
-
-    /** snip **/
+    /** <...> **/
 }
 
 /// Historic slot instance
 pub struct ExecutionPayloadHeader {
-    /** snip **/
-
+    /** <...> **/
       pub base_fee_per_gas: U256,
-////  pub block_hash: Hash32,  ////
+****  pub block_hash: Hash32,  ****
       pub transactions_root: Root,
-
-    /** snip **/
+    /** <...> **/
 }
 ```
 
-For the full proof to be valid, all segments must be valid merkle proofs. Additionally, the root of segment 3 must be the leaf of segment 2 and the root of segment 2 must be the leaf of segment 1.
+To summarize to prove the `blockhash` for slot `x` into a `BeaconBlock` root for slot `n` where `n - 8192 <= x < n`, we require the following sequence of proofs with corresponding local indices and tree heights:
 
-##### Generalized Index Constraints
-
-Given `BeaconBlock` Root for slot `n` and some `blockhash` to prove for slot `x` where `n - 8192 <= x < n`.
-
-|                                     | Merkleized Data Structure  | Leaf Node                     | Root Node                     | Local Index Constraint(s)   | Tree Height Constraint |
+|                                     | Merkleized Data Structure  | Leaf Node                     | Root Node                     | Local Index   | Tree Height |
 | ----------------------------------- | -------------------------- | ----------------------------- | ----------------------------- | --------------------------- | ---------------------- |
-| `BeaconState` Root Proof            | `BeaconBlock` for slot `n` | `BeaconState` Root            | `BeaconBlock` Root            | `LI == 3`                   | 3                      |
+| `BeaconState` Root Proof            | `BeaconBlock` for slot `n` | `BeaconState` Root            | `BeaconBlock` Root            | 3                   | 3                      |
 | Historical `BeaconState` Root Proof | `BeaconState` for slot `n` | Historical `BeaconState` Root | `BeaconState` Root            | `LI < 57344`, `LI >= 49152` | 18                     |
-| Blockhash Proof                     | `BeaconState` for slot `x` | Historical `blockhash`        | Historical `BeaconState` Root | `LI == 780`                 | 10                     |
+| Blockhash Proof                     | `BeaconState` for slot `x` | Historical `blockhash`        | Historical `BeaconState` Root | 780                 | 10                     |
 
-#### SSZ beacon block root is NOT within the past 8192 slots of the blockhash being proven
+#### Beacon block root is greater than 8192 slots prior to the blockhash (`verifyHistoricalBlock()`)
 
-In this case, the historic state root we are interested in is committed to in the `historical_summaries` field of the `BeaconState`. The second segment here will be a proof from the appropriate index of `historical_summaries` to the current state root. The `historical_summaries_index` can be calculated with `(historic_state_root_slot - CAPELLA_INIT_SLOT) / 8192`.
+In this case, the historic state root we are interested in is committed to in the `historical_summaries` field of the `BeaconState`. Thus, we must give a proof from the `state_summary_root` of the `HistoricalSummary` at index `(historic_state_root_slot - CAPELLA_INIT_SLOT) / 8192` of `historical_summaries` to the current beacon state root.
 
 ```rust
 /// Current slot instance
 pub struct BeaconState {
-      ... snip ...
-
+    /** <...> **/
       pub next_withdrawal_validator_index: ValidatorIndex,
 ****  pub historical_summaries: List<HistoricalSummary, HISTORICAL_ROOTS_LIMIT>,  ****
 }
 ```
 
-The third segment will depend on the full state of the slot in which the historic root was merkleized. Merkleization takes place every 8192 slots and `merkleization_slot` can be calculated with `(historical_summaries_index + 1) * 8192 + CAPELLA_INIT_SLOT`. On this piece of state, our historic root will be found in the `state_roots` vector at index `historic_state_root_slot % 8192`. So the third segment will be a proof from the appropriate index of the vector (our historic state root) to the historic summary root.
+Next, we must prove the historic state root at index `historic_state_root_slot % 8192` of the `state_roots` vector into the `state_summary_root`. 
 
 ```rust
 /// Merkleization slot instance
 pub struct BeaconState {
-    ... snip ...
-
+    /** <...> **/
       pub block_roots: Vector<Root, SLOTS_PER_HISTORICAL_ROOT>,
 ****  pub state_roots: Vector<Root, SLOTS_PER_HISTORICAL_ROOT>,  ****
       pub historical_roots: List<Root, HISTORICAL_ROOTS_LIMIT>,
-
-    ... snip ...
+    /** <...> **/
 }
 ```
 
-The fourth and final segment will require the full state of the historic slot. It will be a proof from the `latest_execution_payload_header.blockhash` field of the historic state to the historic state root.
+Finally, we must prove the `latest_execution_payload_header.blockhash` field of the historic state into the historic state root.
 
 ```rust
 /// Historic slot instance
 pub struct BeaconState {
-    ... snip ...
-
+    /** <...> **/
       pub next_sync_committee: SyncCommittee<SYNC_COMMITTEE_SIZE>,
 ****  pub latest_execution_payload_header:
           ExecutionPayloadHeader<BYTES_PER_LOGS_BLOOM, MAX_EXTRA_DATA_BYTES>,  ****
       pub next_withdrawal_index: WithdrawalIndex,
-
-    ... snip ...
+    /** <...> **/
 }
 
 /// Historic slot instance
 pub struct ExecutionPayloadHeader {
-    ... snip ...
-
+    /** <...> **/
       pub base_fee_per_gas: U256,
 ****  pub block_hash: Hash32,  ****
       pub transactions_root: Root,
-
-    ... snip ...
+    /** <...> **/
 }
 ```
 
-##### Generalized Index Constraints
+To summarize, to prove the `blockhash` for slot `x` into the `BeaconBlock` root for slot `n` with `CAPELLA_INIT_SLOT <= x < n - 8192`, we must generate the following SSZ proofs with corresponding local indices and tree heights:
 
-Given `BeaconBlock` Root for slot `n` and some `blockhash` to prove for slot `x` where `CAPELLA_INIT_SLOT <= x < n - 8192`.
-
-|                                     | Merkleized Data Structure                        | Leaf Node                     | Root Node                     | Local Index Constraint(s)                            | Tree Height Constraint |
+|                                     | Merkleized Data Structure                        | Leaf Node                     | Root Node                     | Local Index                            | Tree Height |
 | ----------------------------------- | ------------------------------------------------ | ----------------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------- |
-| `BeaconState` Root Proof            | `BeaconBlock` for slot `n`                       | `BeaconState` Root            | `BeaconBlock` Root            | `LI == 3`                                            | 3                      |
+| `BeaconState` Root Proof            | `BeaconBlock` for slot `n`                       | `BeaconState` Root            | `BeaconBlock` Root            | 3                                            | 3                      |
 | `HistoricalSummary` Root Proof      | `BeaconState` for slot `n`                       | `state_summary_root`          | `BeaconState` Root            | `LI >= 1811939328`, `LI < 1845493760`, `LI % 2 == 1` | 31                     |
 | Historical `BeaconState` Root Proof | `BeaconState` for merkleization slot of slot `n` | Historical `BeaconState` Root | `state_summary_root`          | `LI < 8192`, `LI >= 0`                               | 13                     |
-| Blockhash Proof                     | `BeaconState` for slot `x`                       | Historical `blockhash`        | Historical `BeaconState` Root | `LI == 780`                                          | 10                     |
+| Blockhash Proof                     | `BeaconState` for slot `x`                       | Historical `blockhash`        | Historical `BeaconState` Root | 780                                          | 10                     |
 
-> [!NOTE]
-> To learn more about generalized indices, see [this](https://github.com/ethereum/consensus-specs) and [this](https://eth2book.info/capella/annotated-spec/).
+
 
 ## Future Maintenance
 
