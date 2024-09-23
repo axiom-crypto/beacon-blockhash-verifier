@@ -6,6 +6,8 @@ A smart contract that verifies the integrity of post-Capella historical `blockha
 
 ## External API
 
+The contract provides the following functions to verify and access historical blockhash values.
+
 - `isBlockhashVerified(_blockhash)`: Returns `true` if the provided `_blockhash` has been verified before.
 - `verifyCurrentBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates the `blockhash` of block `x`.
 - `verifyRecentHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within the range `[x - 8192, x - 1]`.
