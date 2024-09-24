@@ -1,0 +1,25 @@
+[package]
+name = "eth-proof-backend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+exclude.workspace = true
+
+[features]
+default = []
+ssz-storage = []
+
+[dependencies]
+axum = "0.7.5"
+eth-proofs = { path = "../eth_proofs", version = "0.1.0" }
+hex = { package = "const-hex", version = "1.10" }
+
+alloy-provider.workspace = true
+alloy-rpc-client.workspace = true
+alloy-rpc-types-eth.workspace = true
+op-alloy-network.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+url.workspace = true
