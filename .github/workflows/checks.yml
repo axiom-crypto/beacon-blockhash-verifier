@@ -22,7 +22,7 @@ jobs:
         uses: codespell-project/actions-codespell@v2.0
         with:
           check_filenames: true
-          ignore_words_list: wee
+          ignore_words_list: crate
           skip: ./.git
 
   validate-links:
@@ -49,5 +49,5 @@ jobs:
 
       - name: Validate URLs
         run: |
-          awesome_bot ./*.md contracts/src/*.sol crates/src/*.rs --allow-dupe --request-delay 0.4 \
+          awesome_bot ./*.md contracts/src/*.sol crates/*.rs --allow-dupe --request-delay 0.4 \
           --allow-redirect -w https://github.com/user-attachments/assets/
