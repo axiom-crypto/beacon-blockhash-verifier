@@ -1,5 +1,4 @@
 use crate::config::Mainnet;
-use crate::lighthouse_prover_client::LighthouseProverClient;
 use crate::proofs::{
     generate_blockhash_proof, generate_blockhash_proof_from_blocks,
     generate_eip4788_blockhash_proof, generate_storage_proof, verify_blockhash_proof,
@@ -22,7 +21,6 @@ where
 {
     el_client: P,
     beacon_api_client: Client<MainnetClientTypes>,
-    lighthouse_prover_client: LighthouseProverClient,
 }
 
 async fn setup() -> TestState<impl L1Provider> {
@@ -34,14 +32,10 @@ async fn setup() -> TestState<impl L1Provider> {
 
     let rpc = &var("BEACON_URL_1").expect("BEACON_URL_1 not set");
     let beacon_api_client = Client::new(Url::parse(rpc).unwrap());
-    let lighthouse_prover_client = LighthouseProverClient::new(
-        &var("LIGHTHOUSE_PROVER_RPC_URL").expect("LIGHTHOUSE_PROVER_RPC_URL not set"),
-    );
 
     TestState {
         el_client,
         beacon_api_client,
-        lighthouse_prover_client,
     }
 }
 
@@ -77,14 +71,9 @@ async fn test_current_block_proof() {
     let state = setup().await;
     let beacon_api_client = state.beacon_api_client;
 
-    let proof = generate_blockhash_proof::<Mainnet>(
-        &beacon_api_client,
-        &state.lighthouse_prover_client,
-        9568224,
-        9568224,
-    )
-    .await
-    .unwrap();
+    let proof = generate_blockhash_proof::<Mainnet>(&beacon_api_client, 9568224, 9568224)
+        .await
+        .unwrap();
 
     verify_blockhash_proof(&proof).expect("Failed to verify blockhash proof");
 
@@ -97,14 +86,9 @@ async fn test_recent_historical_block_proof() {
     let state = setup().await;
     let beacon_api_client = state.beacon_api_client;
 
-    let proof = generate_blockhash_proof::<Mainnet>(
-        &beacon_api_client,
-        &state.lighthouse_prover_client,
-        9568224,
-        9568000,
-    )
-    .await
-    .unwrap();
+    let proof = generate_blockhash_proof::<Mainnet>(&beacon_api_client, 9568224, 9568000)
+        .await
+        .unwrap();
 
     verify_blockhash_proof(&proof).expect("Failed to verify blockhash proof");
 
@@ -117,32 +101,25 @@ async fn test_historical_block_proof() {
     let state = setup().await;
     let beacon_api_client = state.beacon_api_client;
 
-    let proof = generate_blockhash_proof::<Mainnet>(
-        &beacon_api_client,
-        &state.lighthouse_prover_client,
-        9568224,
-        9560000,
-    )
-    .await
-    .unwrap();
+    let proof = generate_blockhash_proof::<Mainnet>(&beacon_api_client, 9568224, 9560000)
+        .await
+        .unwrap();
 
     verify_blockhash_proof(&proof).expect("Failed to verify blockhash proof");
 
     assert!(matches!(proof, SszProof::HistoricalBlock { .. }));
 }
 
-#[ignore = "lighthouse node is down"]
+#[ignore]
 #[tokio::test]
 async fn test_blockhash_proof_from_blocks() {
     let state = setup().await;
     let el_client = state.el_client;
     let beacon_api_client = state.beacon_api_client;
-    let lighthouse_prover_client = state.lighthouse_prover_client;
 
     let proof = generate_blockhash_proof_from_blocks::<Mainnet>(
         &el_client,
         &beacon_api_client,
-        &lighthouse_prover_client,
         20361359,
         20361359,
     )
@@ -158,7 +135,6 @@ async fn test_eip4788_blockhash_proof_mainnet() {
     let state = setup().await;
     let el_client = state.el_client;
     let beacon_api_client = state.beacon_api_client;
-    let lighthouse_prover_client = state.lighthouse_prover_client;
 
     let Eip4788BlockhashProof {
         blockhash_proof,
@@ -166,7 +142,6 @@ async fn test_eip4788_blockhash_proof_mainnet() {
     } = generate_eip4788_blockhash_proof::<Mainnet, RootProvider<BoxTransport, Optimism>>(
         &el_client,
         &beacon_api_client,
-        &lighthouse_prover_client,
         None,
         20361359,
         VerifyingChain::Mainnet,
@@ -225,7 +200,6 @@ async fn test_eip4788_blockhash_proof_optimism() {
     let state = setup().await;
     let el_client = state.el_client;
     let beacon_api_client = state.beacon_api_client;
-    let lighthouse_prover_client = state.lighthouse_prover_client;
 
     let Eip4788BlockhashProof {
         blockhash_proof,
@@ -233,7 +207,6 @@ async fn test_eip4788_blockhash_proof_optimism() {
     } = generate_eip4788_blockhash_proof::<Mainnet, RootProvider<BoxTransport, Optimism>>(
         &el_client,
         &beacon_api_client,
-        &lighthouse_prover_client,
         None,
         20361359,
         VerifyingChain::OpStack {

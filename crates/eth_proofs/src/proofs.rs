@@ -1,5 +1,4 @@
 use crate::error::SszStorageProofGenerationError;
-use crate::lighthouse_prover_client::LighthouseProverClient;
 use crate::types::{
     Eip4788BlockhashProof, Eip4788SszStorageProof, L1Provider, OpStackProvider, OutputAtBlock,
     SszProof, SszProofSegment, SszStorageProof, VerifyingChain,
@@ -15,9 +14,10 @@ use alloy_rpc_types_eth::{
     Block, BlockId as AlloyBlockId, BlockTransactionsKind, EIP1186AccountProofResponse,
 };
 use alloy_transport::TransportErrorKind;
+use beacon_api_client::StateId;
 use beacon_api_client::{mainnet::Client, BlockId as BeaconBlockId};
 use ethereum_consensus::deneb::mainnet::SLOTS_PER_HISTORICAL_ROOT;
-use ethereum_consensus::types::mainnet::SignedBeaconBlock;
+use ethereum_consensus::types::{mainnet::SignedBeaconBlock, BeaconState};
 use ssz_rs::{PathElement, Prove};
 use tokio::try_join;
 
@@ -27,7 +27,6 @@ use tokio::try_join;
 /// * `prove_slot` - the slot of the blockhash whose proof will be generated
 pub async fn generate_blockhash_proof<C: ChainConfig>(
     client: &Client,
-    lighthouse_prover_client: &LighthouseProverClient,
     ssz_root_slot: u64,
     prove_slot: u64,
 ) -> Result<SszProof, BlockhashProofGenerationError> {
@@ -55,149 +54,147 @@ pub async fn generate_blockhash_proof<C: ChainConfig>(
         .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
         .into();
 
-    if prove_slot == ssz_root_slot {
-        let path = &[
-            PathElement::Field("latest_execution_payload_header".to_owned()),
-            PathElement::Field("block_hash".to_owned()),
-        ];
+    let state = client
+        .get_state(StateId::Slot(ssz_root_slot))
+        .await
+        .map_err(|_| BlockhashProofGenerationError::FailedToGetState)?;
 
-        let blockhash_proof: SszProofSegment = lighthouse_prover_client
-            .get_proof(ssz_root_slot, path, false)
-            .await
-            .map_err(|_| BlockhashProofGenerationError::FailedToFetchProof {
-                slot: ssz_root_slot,
-                path: path.to_vec(),
-            })?
-            .into();
+    match state {
+        BeaconState::Deneb(state) => {
+            assert!(ssz_root_slot == state.slot);
 
-        Ok(SszProof::CurrentBlock {
-            curr_state_root_proof,
-            blockhash_proof,
-        })
-    }
-    // prove_slot is within `state_roots` (within the last 8192 slots of `ssz_root_slot`)
-    else if prove_slot >= ssz_root_slot - SLOTS_PER_HISTORICAL_ROOT as u64 {
-        // Path from `state_root` of `prove_slot` to `state_root` of `ssz_root_slot`
-        let path1 = &[
-            PathElement::Field("state_roots".to_owned()),
-            PathElement::Index((prove_slot % (SLOTS_PER_HISTORICAL_ROOT as u64)) as usize),
-        ];
+            if prove_slot == ssz_root_slot {
+                let path = &[
+                    PathElement::Field("latest_execution_payload_header".to_owned()),
+                    PathElement::Field("block_hash".to_owned()),
+                ];
 
-        let path2 = &[
-            PathElement::Field("latest_execution_payload_header".to_owned()),
-            PathElement::Field("block_hash".to_owned()),
-        ];
+                let blockhash_proof = state
+                    .prove(path)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
 
-        let (hist_state_root_proof, blockhash_proof) = try_join!(
-            async {
-                lighthouse_prover_client
-                    .get_proof(ssz_root_slot, path1, false)
+                Ok(SszProof::CurrentBlock {
+                    curr_state_root_proof,
+                    blockhash_proof,
+                })
+            }
+            // prove_slot is within `state_roots` (within the last 8192 slots of `ssz_root_slot`)
+            else if prove_slot >= ssz_root_slot - SLOTS_PER_HISTORICAL_ROOT as u64 {
+                // Path from `state_root` of `prove_slot` to `state_root` of `ssz_root_slot`
+                let path1 = &[
+                    PathElement::Field("state_roots".to_owned()),
+                    PathElement::Index((prove_slot % (SLOTS_PER_HISTORICAL_ROOT as u64)) as usize),
+                ];
+
+                let hist_state_root_proof = state
+                    .prove(path1)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                let prove_slot_state = client
+                    .get_state(StateId::Slot(prove_slot))
                     .await
-                    .map_err(|_| BlockhashProofGenerationError::FailedToFetchProof {
-                        slot: ssz_root_slot,
-                        path: path1.to_vec(),
-                    })
-            },
-            async {
-                lighthouse_prover_client
-                    .get_proof(prove_slot, path2, false)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGetState)?;
+
+                let prove_slot_state = prove_slot_state
+                    .deneb()
+                    .ok_or(BlockhashProofGenerationError::UnsupportedHardfork)?;
+
+                let path2 = &[
+                    PathElement::Field("latest_execution_payload_header".to_owned()),
+                    PathElement::Field("block_hash".to_owned()),
+                ];
+
+                let blockhash_proof = prove_slot_state
+                    .prove(path2)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                Ok(SszProof::RecentHistoricalBlock {
+                    curr_state_root_proof,
+                    hist_state_root_proof,
+                    blockhash_proof,
+                })
+            }
+            // next_slot is within `historical_summaries`
+            else {
+                // We expect CAPELLA_INIT_SLOT to be divisible by SLOTS_PER_HISTORICAL_ROOT (8192) here.
+                let summary_root_index =
+                    (prove_slot - C::CAPELLA_INIT_SLOT) / (SLOTS_PER_HISTORICAL_ROOT as u64);
+
+                // Prove from historical summary root to available ssz_root
+                let path1 = &[
+                    PathElement::Field("historical_summaries".to_owned()),
+                    PathElement::Index((summary_root_index) as usize),
+                    PathElement::Field("state_summary_root".to_owned()),
+                ];
+
+                let summary_root_proof = state
+                    .prove(path1)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                // Prove from historical state_root to historical summary root
+                //
+                // We add 1 here because merkleization takes place at the
+                // beginning of the next 8192-slot range.
+                let merkleization_slot = (summary_root_index + 1)
+                    * (SLOTS_PER_HISTORICAL_ROOT as u64)
+                    + C::CAPELLA_INIT_SLOT;
+                let merkleization_slot_state = client
+                    .get_state(StateId::Slot(merkleization_slot))
                     .await
-                    .map_err(|_| BlockhashProofGenerationError::FailedToFetchProof {
-                        slot: prove_slot,
-                        path: path2.to_vec(),
-                    })
-            },
-        )
-        .map(|(a, b)| (a.into(), b.into()))?;
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGetState)?;
 
-        Ok(SszProof::RecentHistoricalBlock {
-            curr_state_root_proof,
-            hist_state_root_proof,
-            blockhash_proof,
-        })
-    }
-    // next_slot is within `historical_summaries`
-    else {
-        ////                 PROOF 1                 ////
+                let merkleization_slot_state = merkleization_slot_state
+                    .deneb()
+                    .ok_or(BlockhashProofGenerationError::UnsupportedHardfork)?;
+                let state_root_index = prove_slot % (SLOTS_PER_HISTORICAL_ROOT as u64);
 
-        // We expect CAPELLA_INIT_SLOT to be divisible by SLOTS_PER_HISTORICAL_ROOT (8192) here.
-        let summary_root_index =
-            (prove_slot - C::CAPELLA_INIT_SLOT) / (SLOTS_PER_HISTORICAL_ROOT as u64);
+                let path2 = &[PathElement::Index((state_root_index) as usize)];
 
-        // Prove from historical summary root to available ssz_root
-        let path1 = &[
-            PathElement::Field("historical_summaries".to_owned()),
-            PathElement::Index((summary_root_index) as usize),
-            PathElement::Field("state_summary_root".to_owned()),
-        ];
+                let hist_state_root_proof = merkleization_slot_state
+                    .state_roots
+                    .prove(path2)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
 
-        ////                 PROOF 2                 ////
-
-        // Prove from historical state_root to historical summary root
-        //
-        // We add 1 here because merkleization takes place at the
-        // beginning of the next 8192-slot range.
-        let merkleization_slot =
-            (summary_root_index + 1) * (SLOTS_PER_HISTORICAL_ROOT as u64) + C::CAPELLA_INIT_SLOT;
-        let state_root_index = prove_slot % (SLOTS_PER_HISTORICAL_ROOT as u64);
-
-        let path2 = &[PathElement::Index((state_root_index) as usize)];
-
-        ////                 PROOF 3                 ////
-
-        let path3 = &[
-            PathElement::Field("latest_execution_payload_header".to_owned()),
-            PathElement::Field("block_hash".to_owned()),
-        ];
-
-        let (summary_root_proof, hist_state_root_proof, blockhash_proof): (
-            SszProofSegment,
-            SszProofSegment,
-            SszProofSegment,
-        ) = try_join!(
-            async {
-                lighthouse_prover_client
-                    .get_proof(ssz_root_slot, path1, false)
+                let prove_slot_state = client
+                    .get_state(StateId::Slot(prove_slot))
                     .await
-                    .map_err(|_| BlockhashProofGenerationError::FailedToFetchProof {
-                        slot: ssz_root_slot,
-                        path: path1.to_vec(),
-                    })
-            },
-            async {
-                lighthouse_prover_client
-                    .get_proof(merkleization_slot, path2, true)
-                    .await
-                    .map_err(|_| BlockhashProofGenerationError::FailedToFetchProof {
-                        slot: merkleization_slot,
-                        path: path2.to_vec(),
-                    })
-            },
-            async {
-                lighthouse_prover_client
-                    .get_proof(prove_slot, path3, false)
-                    .await
-                    .map_err(|_| BlockhashProofGenerationError::FailedToFetchProof {
-                        slot: prove_slot,
-                        path: path3.to_vec(),
-                    })
-            },
-        )
-        .map(|(a, b, c)| (a.into(), b.into(), c.into()))?;
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGetState)?;
 
-        Ok(SszProof::HistoricalBlock {
-            curr_state_root_proof,
-            summary_root_proof,
-            hist_state_root_proof,
-            blockhash_proof,
-        })
+                let prove_slot_state = prove_slot_state
+                    .deneb()
+                    .ok_or(BlockhashProofGenerationError::UnsupportedHardfork)?;
+
+                let path3 = &[
+                    PathElement::Field("latest_execution_payload_header".to_owned()),
+                    PathElement::Field("block_hash".to_owned()),
+                ];
+
+                let blockhash_proof = prove_slot_state
+                    .prove(path3)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                Ok(SszProof::HistoricalBlock {
+                    curr_state_root_proof,
+                    summary_root_proof,
+                    hist_state_root_proof,
+                    blockhash_proof,
+                })
+            }
+        }
+        // BeaconState::Electra(state) => todo!(),
+        _ => Err(BlockhashProofGenerationError::UnsupportedHardfork),
     }
 }
 
 pub async fn generate_blockhash_proof_from_blocks<C: ChainConfig>(
     el_client: &impl L1Provider,
     beacon_api_client: &Client,
-    lighthouse_prover_client: &LighthouseProverClient,
     prove_from_block: u64,
     prove_into_block: u64,
 ) -> Result<SszProof, BlockhashProofGenerationError> {
@@ -214,19 +211,12 @@ pub async fn generate_blockhash_proof_from_blocks<C: ChainConfig>(
         },
     )?;
 
-    generate_blockhash_proof::<C>(
-        beacon_api_client,
-        lighthouse_prover_client,
-        ssz_root_slot,
-        prove_slot,
-    )
-    .await
+    generate_blockhash_proof::<C>(beacon_api_client, ssz_root_slot, prove_slot).await
 }
 
 pub async fn generate_eip4788_blockhash_proof<'a, C: ChainConfig, O: OpStackProvider>(
     el_client: &impl L1Provider,
     beacon_api_client: &Client,
-    lighthouse_prover_client: &LighthouseProverClient,
     eip4788_timestamp: Option<u64>,
     prove_from_block: u64,
     verifier_chain: VerifyingChain<'a, O>,
@@ -248,13 +238,8 @@ pub async fn generate_eip4788_blockhash_proof<'a, C: ChainConfig, O: OpStackProv
         }
     )?;
 
-    let blockhash_proof = generate_blockhash_proof::<C>(
-        beacon_api_client,
-        lighthouse_prover_client,
-        ssz_root_beacon_slot,
-        prove_slot,
-    )
-    .await?;
+    let blockhash_proof =
+        generate_blockhash_proof::<C>(beacon_api_client, ssz_root_beacon_slot, prove_slot).await?;
 
     Ok(Eip4788BlockhashProof {
         blockhash_proof,
@@ -414,7 +399,6 @@ pub async fn generate_storage_proof(
 
 pub async fn generate_ssz_storage_proof<C: ChainConfig>(
     el_client: &impl L1Provider,
-    lighthouse_prover_client: &LighthouseProverClient,
     beacon_api_client: &Client,
     ssz_root_beacon_slot: u64,
     storage_block_number: u64,
@@ -446,7 +430,6 @@ pub async fn generate_ssz_storage_proof<C: ChainConfig>(
 
     let ssz_proof = generate_blockhash_proof::<Mainnet>(
         beacon_api_client,
-        lighthouse_prover_client,
         ssz_root_beacon_slot,
         storage_beacon_slot,
     )
@@ -462,7 +445,6 @@ pub async fn generate_ssz_storage_proof<C: ChainConfig>(
 #[allow(clippy::too_many_arguments)]
 pub async fn generate_eip4788_ssz_storage_proof<'a, O: OpStackProvider, C: ChainConfig>(
     el_client: &impl L1Provider,
-    lighthouse_prover_client: &LighthouseProverClient,
     beacon_api_client: &Client,
     eip4788_timestamp: Option<u64>,
     storage_block_number: u64,
@@ -480,7 +462,6 @@ pub async fn generate_eip4788_ssz_storage_proof<'a, O: OpStackProvider, C: Chain
 
     let ssz_storage_proof = generate_ssz_storage_proof::<C>(
         el_client,
-        lighthouse_prover_client,
         beacon_api_client,
         ssz_root_beacon_slot,
         storage_block_number,

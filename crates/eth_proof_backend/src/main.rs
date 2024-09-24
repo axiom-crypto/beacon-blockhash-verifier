@@ -10,7 +10,6 @@ use eth_proof_backend::{
 };
 use eth_proofs::{
     config::Mainnet,
-    lighthouse_prover_client::LighthouseProverClient,
     proofs::{generate_blockhash_proof_from_blocks, generate_eip4788_blockhash_proof},
     types::{Eip4788BlockhashProof, OpStackProvider, VerifyingChain},
     BeaconApiClient,
@@ -39,7 +38,6 @@ where
     O: OpStackProvider,
 {
     beacon_api_client: BeaconApiClient,
-    lighthouse_prover_client: LighthouseProverClient,
     el_client: P,
     optimism_client: Option<O>,
 }
@@ -108,10 +106,6 @@ async fn main() {
         .await
         .expect("Failed to create provider");
 
-    let lighthouse_prover_rpc =
-        &var("LIGHTHOUSE_PROVER_RPC_URL").expect("LIGHTHOUSE_PROVER_RPC_URL not set");
-    let lighthouse_prover_client = LighthouseProverClient::new(lighthouse_prover_rpc);
-
     let optimism_client = match &var("OPTIMISM_RPC_URL") {
         Ok(optimism_rpc) => {
             let connect: BuiltInConnectionString = optimism_rpc.parse().unwrap();
@@ -129,7 +123,6 @@ async fn main() {
 
     let state = Arc::new(ServerState {
         beacon_api_client,
-        lighthouse_prover_client,
         el_client: Box::new(el_client),
         optimism_client,
     });
@@ -174,7 +167,6 @@ async fn handle_blockhash_proof_request<P: Provider, O: OpStackProvider>(
     let ssz_proof = generate_blockhash_proof_from_blocks::<Mainnet>(
         &state.el_client,
         &state.beacon_api_client,
-        &state.lighthouse_prover_client,
         params.prove_into_block,
         params.prove_from_block,
     )
@@ -206,7 +198,6 @@ async fn handle_eip4788_blockhash_proof_request<P: Provider, O: OpStackProvider>
     } = generate_eip4788_blockhash_proof::<Mainnet, O>(
         &state.el_client,
         &state.beacon_api_client,
-        &state.lighthouse_prover_client,
         params.eip4788_timestamp,
         params.prove_from_block,
         verifier_chain,
@@ -230,7 +221,6 @@ async fn handle_proof_request<P: Provider, O: OpStackProvider>(
 
     let storage_slot_proof: SszStorageProof = generate_ssz_storage_proof::<Mainnet>(
         &state.el_client,
-        &state.lighthouse_prover_client,
         &state.beacon_api_client,
         ssz_root_beacon_slot,
         params.storage_block_number,
@@ -274,7 +264,6 @@ async fn handle_eip4788_proof_request<P: Provider, O: OpStackProvider>(
         eip4788_timestamp,
     } = generate_eip4788_ssz_storage_proof::<_, Mainnet>(
         &state.el_client,
-        &state.lighthouse_prover_client,
         &state.beacon_api_client,
         params.eip4788_timestamp,
         params.storage_block_number,
