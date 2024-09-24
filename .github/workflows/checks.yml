@@ -49,5 +49,5 @@ jobs:
 
       - name: Validate URLs
         run: |
-          awesome_bot ./*.md contracts/src/*.sol crates/*.rs --allow-dupe --request-delay 0.4 \
-          --allow-redirect -w https://github.com/user-attachments/assets/
+          awesome_bot ./*.md contracts/src/*.sol crates/eth_proof_backend/src/*.rs crates/eth_proofs/src/*.rs --allow-dupe --request-delay 0.4 \
+          --allow-redirect -w https://github.com/user-attachments/assets/,http::StatusCode

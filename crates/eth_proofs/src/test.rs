@@ -11,10 +11,10 @@ use alloy_rpc_client::{BuiltInConnectionString, ClientBuilder};
 use alloy_rpc_types_eth::{BlockId, TransactionRequest};
 use alloy_transport::BoxTransport;
 use beacon_api_client::{mainnet::MainnetClientTypes, Client};
-use url::Url;
 use op_alloy_network::Optimism;
 use std::env::var;
 use std::str::FromStr;
+use url::Url;
 
 struct TestState<P>
 where

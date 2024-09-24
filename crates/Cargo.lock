@@ -1272,6 +1272,7 @@ dependencies = [
 name = "eth-proof-backend"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "alloy-provider",
  "alloy-rpc-client",
  "alloy-rpc-types-eth",
