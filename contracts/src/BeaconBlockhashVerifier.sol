@@ -469,8 +469,7 @@ contract BeaconBlockhashVerifier {
         uint256 localIndex,
         uint256 expectedHeight
     ) internal view returns (bool valid) {
-        uint256 length = proof.length;
-        if (length != expectedHeight) return false;
+        if (proof.length != expectedHeight) return false;
 
         /// @solidity memory-safe-assembly
         assembly {
