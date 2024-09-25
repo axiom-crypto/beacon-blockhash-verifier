@@ -134,7 +134,7 @@ async fn main() {
             get(handle_blockhash_proof_request),
         )
         .route(
-            "/generate_fixed_blockhash_proof",
+            "/generate_eip4788_blockhash_proof",
             get(handle_eip4788_blockhash_proof_request),
         )
         .with_state(state);
@@ -148,7 +148,7 @@ async fn main() {
             get(handle_blockhash_proof_request),
         )
         .route(
-            "/generate_fixed_blockhash_proof",
+            "/generate_eip4788_blockhash_proof",
             get(handle_eip4788_blockhash_proof_request),
         )
         .with_state(state);
