@@ -45,7 +45,7 @@ During verification, the local index's binary representation encodes the left/ri
 
 ### Blockhash Proofs
 
-The beacon block root commits to the entire history of Ethereum blockhashes after the Altair hard fork via its commitment to the beacon state and the following `BeaconState` fields:
+The beacon block root commits to the entire history of Ethereum blockhashes after the Capella hard fork via its commitment to the beacon state and the following `BeaconState` fields:
 
 - `latest_execution_payload_header` -- contains the most recent Ethereum blockhash.
 - `state_roots` -- contains roots of the beacon states and hence Ethereum blockhashes for the past 8192 slots.
