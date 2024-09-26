@@ -224,7 +224,7 @@ Then, fill out the relevant environment variables. Setting `OPTIMISM_RPC_URL` is
 
 ```bash
 source crates/eth_proof_backend/.env
-cargo run --release
+cd crates && cargo run --release
 ```
 
 By default, the server exposes two endpoints:
@@ -362,7 +362,7 @@ curl http://localhost:3000/generate_blockhash_proof?prove_from_block=20822990&pr
 
 ```bash
 # HistoricalBlock
-http://localhost:3000/generate_blockhash_proof?prove_from_block=19822990&prove_into_block=20822991
+curl http://localhost:3000/generate_blockhash_proof?prove_from_block=19822990&prove_into_block=20822991
 ```
 
 <details>
@@ -481,7 +481,7 @@ Generates a set of SSZ proofs to prove a blockhash into a recent beacon block ro
 
 ```bash
 # CurrentBlock, with set timestamp
-http://localhost:3000/generate_eip4788_blockhash_proof?prove_from_block=20829376&verifier_chain=mainnet&eip4788_timestamp=1727288531
+curl http://localhost:3000/generate_eip4788_blockhash_proof?prove_from_block=20829376&verifier_chain=mainnet&eip4788_timestamp=1727288531
 ```
 
 <details>
@@ -527,7 +527,7 @@ http://localhost:3000/generate_eip4788_blockhash_proof?prove_from_block=20829376
 </details>
 
 ```bash
-# RecentHistoricalBlock, with no set timestamp
+# RecentHistoricalBlock, with no set timestamp (will potentially return different output every time)
 curl http://localhost:3000/generate_eip4788_blockhash_proof?prove_from_block=20822990&prove_into_block=20822991
 ```
 
