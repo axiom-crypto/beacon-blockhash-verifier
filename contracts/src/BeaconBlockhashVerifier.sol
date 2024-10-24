@@ -106,6 +106,9 @@ contract BeaconBlockhashVerifier {
     /// @dev External call to the SHA-256 pre-compile failed.
     error Sha256CallFailed();
 
+    /// @dev The blockhash of the requested `block.number` is not verified.
+    error BlockhashNotVerified();
+
     /// @notice Verifies the integrity of a blockhash for block `x` into the
     /// beacon block root for block `x`.
     ///
@@ -498,8 +501,8 @@ contract BeaconBlockhashVerifier {
     }
 
     /// @dev This contract uses the entire storage space of the contract as a
-    /// mapping between `blockhash`es and a `bool`. Assuming no hash collisions,
-    /// this is a safe way to store the verified blockhashes.
+    /// mapping between `block.number`s and a `blockhash`es. Since each number
+    /// is unique, this is a safe way to store the verified blockhashes.
     ///
     /// @param _blockhash The blockhash to store
     function _storeVerifiedBlockhash(uint256 blockNumber, bytes32 _blockhash) internal {
@@ -511,8 +514,8 @@ contract BeaconBlockhashVerifier {
 
     /// @notice Checks if a blockhash has been verified
     /// @dev This contract uses the entire storage space of the contract as a
-    /// mapping between `blockhash`es and a `bool`. Assuming no hash collisions,
-    /// this is a safe way to store the verified blockhashes.
+    /// mapping between `block.number`s and a `blockhash`es. Since each number
+    /// is unique, this is a safe way to store the verified blockhashes.
     ///
     /// @param blockNumber The block number to check
     /// @return _blockhash The blockhash of the block
@@ -521,6 +524,8 @@ contract BeaconBlockhashVerifier {
         assembly {
             _blockhash := sload(blockNumber)
         }
+
+        if (_blockhash == 0) revert BlockhashNotVerified();
     }
 
     /// @dev Processes an inclusion proof with a SHA256 hash.
