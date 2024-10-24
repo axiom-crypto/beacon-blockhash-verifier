@@ -64,18 +64,35 @@ pub async fn generate_blockhash_proof<C: ChainConfig>(
             assert!(ssz_root_slot == state.slot);
 
             if prove_slot == ssz_root_slot {
-                let path = &[
-                    PathElement::Field("latest_execution_payload_header".to_owned()),
-                    PathElement::Field("block_hash".to_owned()),
-                ];
+                let execution_payload_path = &[PathElement::Field(
+                    "latest_execution_payload_header".to_owned(),
+                )];
+
+                let execution_payload_proof = state
+                    .prove(execution_payload_path)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                let block_number_path = &[PathElement::Field("block_number".to_owned())];
+
+                let block_number_proof = state
+                    .latest_execution_payload_header
+                    .prove(block_number_path)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                let blockhash_path = &[PathElement::Field("block_hash".to_owned())];
 
                 let blockhash_proof = state
-                    .prove(path)
+                    .latest_execution_payload_header
+                    .prove(blockhash_path)
                     .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
                     .into();
 
                 Ok(SszProof::CurrentBlock {
                     curr_state_root_proof,
+                    execution_payload_proof,
+                    block_number_proof,
                     blockhash_proof,
                 })
             }
@@ -101,19 +118,36 @@ pub async fn generate_blockhash_proof<C: ChainConfig>(
                     .deneb()
                     .ok_or(BlockhashProofGenerationError::UnsupportedHardfork)?;
 
-                let path2 = &[
-                    PathElement::Field("latest_execution_payload_header".to_owned()),
-                    PathElement::Field("block_hash".to_owned()),
-                ];
+                let execution_payload_path = &[PathElement::Field(
+                    "latest_execution_payload_header".to_owned(),
+                )];
+
+                let execution_payload_proof = prove_slot_state
+                    .prove(execution_payload_path)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                let block_number_path = &[PathElement::Field("block_number".to_owned())];
+
+                let block_number_proof = prove_slot_state
+                    .latest_execution_payload_header
+                    .prove(block_number_path)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                let blockhash_path = &[PathElement::Field("block_hash".to_owned())];
 
                 let blockhash_proof = prove_slot_state
-                    .prove(path2)
+                    .latest_execution_payload_header
+                    .prove(blockhash_path)
                     .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
                     .into();
 
                 Ok(SszProof::RecentHistoricalBlock {
                     curr_state_root_proof,
                     hist_state_root_proof,
+                    execution_payload_proof,
+                    block_number_proof,
                     blockhash_proof,
                 })
             }
@@ -169,13 +203,28 @@ pub async fn generate_blockhash_proof<C: ChainConfig>(
                     .deneb()
                     .ok_or(BlockhashProofGenerationError::UnsupportedHardfork)?;
 
-                let path3 = &[
-                    PathElement::Field("latest_execution_payload_header".to_owned()),
-                    PathElement::Field("block_hash".to_owned()),
-                ];
+                let execution_payload_path = &[PathElement::Field(
+                    "latest_execution_payload_header".to_owned(),
+                )];
+
+                let execution_payload_proof = prove_slot_state
+                    .prove(execution_payload_path)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                let block_number_path = &[PathElement::Field("block_number".to_owned())];
+
+                let block_number_proof = prove_slot_state
+                    .latest_execution_payload_header
+                    .prove(block_number_path)
+                    .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
+                    .into();
+
+                let blockhash_path = &[PathElement::Field("block_hash".to_owned())];
 
                 let blockhash_proof = prove_slot_state
-                    .prove(path3)
+                    .latest_execution_payload_header
+                    .prove(blockhash_path)
                     .map_err(|_| BlockhashProofGenerationError::FailedToGenerateProof)?
                     .into();
 
@@ -183,6 +232,8 @@ pub async fn generate_blockhash_proof<C: ChainConfig>(
                     curr_state_root_proof,
                     summary_root_proof,
                     hist_state_root_proof,
+                    execution_payload_proof,
+                    block_number_proof,
                     blockhash_proof,
                 })
             }
@@ -251,6 +302,8 @@ pub fn verify_blockhash_proof(proof: &SszProof) -> Result<(), VerificationError>
     match proof {
         SszProof::CurrentBlock {
             curr_state_root_proof,
+            execution_payload_proof,
+            block_number_proof,
             blockhash_proof,
         } => {
             let SszProofSegment {
@@ -263,17 +316,45 @@ pub fn verify_blockhash_proof(proof: &SszProof) -> Result<(), VerificationError>
                 .map_err(|_| VerificationError::InvalidCurrentStateRoot)?;
 
             let SszProofSegment {
-                proof: blockhash_proof,
+                proof: execution_payload_proof,
                 witness: curr_state_root,
                 ..
-            } = blockhash_proof;
+            } = execution_payload_proof;
 
             if *curr_state_root != curr_state_root_proof.leaf {
                 return Err(VerificationError::DisconnectedProofs);
             }
 
-            blockhash_proof
+            execution_payload_proof
                 .verify(*curr_state_root)
+                .map_err(|_| VerificationError::DisconnectedProofs)?;
+
+            let SszProofSegment {
+                proof: block_number_proof,
+                witness: execution_payload_root,
+                ..
+            } = block_number_proof;
+
+            if *execution_payload_root != execution_payload_proof.leaf {
+                return Err(VerificationError::DisconnectedProofs);
+            }
+
+            block_number_proof
+                .verify(*execution_payload_root)
+                .map_err(|_| VerificationError::DisconnectedProofs)?;
+
+            let SszProofSegment {
+                proof: blockhash_proof,
+                witness: execution_payload_root,
+                ..
+            } = blockhash_proof;
+
+            if *execution_payload_root != execution_payload_proof.leaf {
+                return Err(VerificationError::DisconnectedProofs);
+            }
+
+            blockhash_proof
+                .verify(*execution_payload_root)
                 .map_err(|_| VerificationError::InvalidBlockhash)?;
 
             Ok(())
@@ -281,6 +362,8 @@ pub fn verify_blockhash_proof(proof: &SszProof) -> Result<(), VerificationError>
         SszProof::RecentHistoricalBlock {
             curr_state_root_proof,
             hist_state_root_proof,
+            execution_payload_proof,
+            block_number_proof,
             blockhash_proof,
         } => {
             let SszProofSegment {
@@ -307,17 +390,44 @@ pub fn verify_blockhash_proof(proof: &SszProof) -> Result<(), VerificationError>
                 .map_err(|_| VerificationError::InvalidHistoricalStateRoot)?;
 
             let SszProofSegment {
-                proof: blockhash_proof,
+                proof: execution_payload_proof,
                 witness: recent_historical_state_root,
                 ..
-            } = blockhash_proof;
+            } = execution_payload_proof;
 
             if *recent_historical_state_root != hist_state_root_proof.leaf {
                 return Err(VerificationError::DisconnectedProofs);
             }
+            execution_payload_proof
+                .verify(*recent_historical_state_root)
+                .map_err(|_| VerificationError::DisconnectedProofs)?;
+
+            let SszProofSegment {
+                proof: block_number_proof,
+                witness: execution_payload_root,
+                ..
+            } = block_number_proof;
+
+            if *execution_payload_root != execution_payload_proof.leaf {
+                return Err(VerificationError::DisconnectedProofs);
+            }
+
+            block_number_proof
+                .verify(*execution_payload_root)
+                .map_err(|_| VerificationError::DisconnectedProofs)?;
+
+            let SszProofSegment {
+                proof: blockhash_proof,
+                witness: execution_payload_root,
+                ..
+            } = blockhash_proof;
+
+            if *execution_payload_root != execution_payload_proof.leaf {
+                return Err(VerificationError::DisconnectedProofs);
+            }
 
             blockhash_proof
-                .verify(*recent_historical_state_root)
+                .verify(*execution_payload_root)
                 .map_err(|_| VerificationError::InvalidBlockhash)?;
 
             Ok(())
@@ -326,6 +436,8 @@ pub fn verify_blockhash_proof(proof: &SszProof) -> Result<(), VerificationError>
             curr_state_root_proof,
             summary_root_proof,
             hist_state_root_proof,
+            execution_payload_proof,
+            block_number_proof,
             blockhash_proof,
         } => {
             let SszProofSegment {
@@ -366,17 +478,44 @@ pub fn verify_blockhash_proof(proof: &SszProof) -> Result<(), VerificationError>
                 .map_err(|_| VerificationError::InvalidHistoricalStateRoot)?;
 
             let SszProofSegment {
+                proof: execution_payload_proof,
+                witness: hist_state_root,
+                ..
+            } = execution_payload_proof;
+
+            if *hist_state_root != hist_state_root_proof.leaf {
+                return Err(VerificationError::DisconnectedProofs);
+            }
+            execution_payload_proof
+                .verify(*hist_state_root)
+                .map_err(|_| VerificationError::DisconnectedProofs)?;
+
+            let SszProofSegment {
+                proof: block_number_proof,
+                witness: execution_payload_root,
+                ..
+            } = block_number_proof;
+
+            if *execution_payload_root != execution_payload_proof.leaf {
+                return Err(VerificationError::DisconnectedProofs);
+            }
+
+            block_number_proof
+                .verify(*execution_payload_root)
+                .map_err(|_| VerificationError::DisconnectedProofs)?;
+
+            let SszProofSegment {
                 proof: blockhash_proof,
-                witness: historical_state_root,
+                witness: execution_payload_root,
                 ..
             } = blockhash_proof;
 
-            if *historical_state_root != hist_state_root_proof.leaf {
+            if *execution_payload_root != execution_payload_proof.leaf {
                 return Err(VerificationError::DisconnectedProofs);
             }
 
             blockhash_proof
-                .verify(*historical_state_root)
+                .verify(*execution_payload_root)
                 .map_err(|_| VerificationError::InvalidBlockhash)?;
 
             Ok(())

@@ -34,17 +34,36 @@ contract BeaconBlockhashTest is Test {
     }
 
     function test_currentBlock() public {
-        bytes32[] memory blockhashProof = new bytes32[](10);
+        bytes32[] memory executionPayloadProof = new bytes32[](5);
+        executionPayloadProof[0] = 0xeb1b2c0300000000000000000000000000000000000000000000000000000000;
+        executionPayloadProof[1] = 0x7a635f6b5c96574d4a4eda40e63602947682cc7584271d26eab500b62f4e54bf;
+        executionPayloadProof[2] = 0xdb56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71;
+        executionPayloadProof[3] = 0x7529dfe4f3504264983ceb4c11cd3869c52a6384491d3f09315a5404656f534b;
+        executionPayloadProof[4] = 0x026a4f79435a63b7e343a74608d99a553dea104cb3027a9645f3eed567aedd8e;
+
+        bytes32[] memory blockNumberProof = new bytes32[](5);
+        blockNumberProof[0] = 0x80c3c90100000000000000000000000000000000000000000000000000000000;
+        blockNumberProof[1] = 0x7e73391c60fc1ad89a3568b6d68f9939ca75f2334a39a4f28ebd0d1d1236b155;
+        blockNumberProof[2] = 0x2f65b0c0f58db6220cc7320e1342646521938e325dcee4f24ac86a2c2a36dc30;
+        blockNumberProof[3] = 0xca1b5a8f66b22cb83983328a4f2ad01237a11eefe006bbd774898b57cdfe8ee0;
+        blockNumberProof[4] = 0xb9ce8de979e8b7148e3950f9e8cb273220e04e309a598125d05b7d7f85544378;
+
+        bytes32[] memory blockhashProof = new bytes32[](5);
         blockhashProof[0] = 0x98907ff2db2d8d736b264c942acfa577abe1fade84ba5aa0452ada7c92724c10;
         blockhashProof[1] = 0x01518d7ada184505cac9b357524a82ff896d010980c97206cd0428825cecc378;
         blockhashProof[2] = 0x352afee35170f2a33c1a77219c35e651c54b389fed8c4246bf20d01efaf57bd8;
         blockhashProof[3] = 0x8d81d69fd3e4479b64c973aabec7ce7018e1fc0473ce187b60ebaef821cdc769;
         blockhashProof[4] = 0xb9ce8de979e8b7148e3950f9e8cb273220e04e309a598125d05b7d7f85544378;
-        blockhashProof[5] = 0xeb1b2c0300000000000000000000000000000000000000000000000000000000;
-        blockhashProof[6] = 0x7a635f6b5c96574d4a4eda40e63602947682cc7584271d26eab500b62f4e54bf;
-        blockhashProof[7] = 0xdb56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71;
-        blockhashProof[8] = 0x7529dfe4f3504264983ceb4c11cd3869c52a6384491d3f09315a5404656f534b;
-        blockhashProof[9] = 0x026a4f79435a63b7e343a74608d99a553dea104cb3027a9645f3eed567aedd8e;
+
+        BeaconBlockhashVerifier.SszProof memory _executionPayloadProof = BeaconBlockhashVerifier.SszProof({
+            leaf: 0x623b517ad4253af9b2681ce3463b4fbbef1c3bde741574f92eaa1e219fe361a8,
+            proof: executionPayloadProof
+        });
+
+        BeaconBlockhashVerifier.SszProof memory _blockNumberProof = BeaconBlockhashVerifier.SszProof({
+            leaf: 0x8fb0360100000000000000000000000000000000000000000000000000000000,
+            proof: blockNumberProof
+        });
 
         BeaconBlockhashVerifier.SszProof memory _blockhashProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0x1dfaf76d5bcf603cfa38b9fdd791e1a14c3701d0468b84f4bf6b7cf4c260525e,
@@ -52,16 +71,27 @@ contract BeaconBlockhashTest is Test {
         });
 
         console.log(
-            "calldata size: ", abi.encode(SLOT_9568225_TIMESTAMP, _currentStateRootProof, _blockhashProof).length + 4
+            "calldata size: ",
+            abi.encode(
+                SLOT_9568225_TIMESTAMP,
+                _currentStateRootProof,
+                _executionPayloadProof,
+                _blockNumberProof,
+                _blockhashProof
+            ).length + 4
         );
 
         _beaconBlockhash.verifyCurrentBlock({
             timestamp: SLOT_9568225_TIMESTAMP,
             currentStateRootProof: _currentStateRootProof,
+            executionPayloadProof: _executionPayloadProof,
+            blockNumberProof: _blockNumberProof,
             blockhashProof: _blockhashProof
         });
 
-        assertEq(_beaconBlockhash.isBlockhashVerified(_blockhashProof.leaf), true);
+        assertEq(
+            _beaconBlockhash.getVerifiedBlockhash(_parseBeBlockNumber(_blockNumberProof.leaf)), _blockhashProof.leaf
+        );
     }
 
     function test_recentHistoricalBlock() public {
@@ -85,21 +115,40 @@ contract BeaconBlockhashTest is Test {
         historicalStateRootProof[16] = 0xee3387c6aca70e9bbb7cd7baefb22b21ccacbe053fa003c079abfaf9bc7383b7;
         historicalStateRootProof[17] = 0x7c8caa41654e3a73f0f4c5a1ad7410dadd02f83b0a24da90a18cec3c5bbf37e8;
 
-        bytes32[] memory blockhashProof = new bytes32[](10);
+        bytes32[] memory executionPayloadProof = new bytes32[](5);
+        executionPayloadProof[0] = 0xfb0d2c0300000000000000000000000000000000000000000000000000000000;
+        executionPayloadProof[1] = 0x109f1ebb3754a553f8372252bf6d7c962ef7a537bf5134530bb60593bca1eddf;
+        executionPayloadProof[2] = 0xdb56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71;
+        executionPayloadProof[3] = 0xa3a11facbf1d484b0ea149f901d9e563d512e15093c4b00231af68eb1e06e9db;
+        executionPayloadProof[4] = 0x81587d91af22f2bee1f7840d06d5403c3132674c9ea3e9dceb8fc49384490369;
+
+        bytes32[] memory blockNumberProof = new bytes32[](5);
+        blockNumberProof[0] = 0x80c3c90100000000000000000000000000000000000000000000000000000000;
+        blockNumberProof[1] = 0x91931c7d2514f5b67fa88c8b538f8d7c6c6b17663060af683c3b03b95de2d98b;
+        blockNumberProof[2] = 0x274dde287f04ddc191edd140343a7f103f1e86b43859eafee5ee5e143a71cd43;
+        blockNumberProof[3] = 0x805abf3bd28553a83e88e09c275ff45d19c192538bcb6f99c1ebe6a6ebd47426;
+        blockNumberProof[4] = 0x0c0b3c320c5dbeb31f092c54aaab8e0d280a5252d351416466804c51d843cbc5;
+
+        bytes32[] memory blockhashProof = new bytes32[](5);
         blockhashProof[0] = 0xd40f7f334f2f0cfac3fcfe4cbd9ef399f4550d70a3864024c884886a15ef26e2;
         blockhashProof[1] = 0x59d1cd533253cd8879842dcd842b097cab2060750a88f50714bc541cf00edfb8;
         blockhashProof[2] = 0x866af279d44595cab607a1332426fcb127326102c795b0e3f281027c8bef8978;
         blockhashProof[3] = 0x4d444478b8416a735bfcd11f0c4fdbc9ce8ea8f5284b43d7603a6d51a6f04178;
         blockhashProof[4] = 0x0c0b3c320c5dbeb31f092c54aaab8e0d280a5252d351416466804c51d843cbc5;
-        blockhashProof[5] = 0xfb0d2c0300000000000000000000000000000000000000000000000000000000;
-        blockhashProof[6] = 0x109f1ebb3754a553f8372252bf6d7c962ef7a537bf5134530bb60593bca1eddf;
-        blockhashProof[7] = 0xdb56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71;
-        blockhashProof[8] = 0xa3a11facbf1d484b0ea149f901d9e563d512e15093c4b00231af68eb1e06e9db;
-        blockhashProof[9] = 0x81587d91af22f2bee1f7840d06d5403c3132674c9ea3e9dceb8fc49384490369;
 
         BeaconBlockhashVerifier.SszProof memory _historicalStateRootProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0x7688551bb6747dc6a456a7254af5a96b6d6b1f0e6dcb1b73a9f5fd7bceaaa704,
             proof: historicalStateRootProof
+        });
+
+        BeaconBlockhashVerifier.SszProof memory _executionPayloadProof = BeaconBlockhashVerifier.SszProof({
+            leaf: 0x25b7befd7a1d050dba63e995eb0ba207f1a93b3b15b77838d5179570e34065d1,
+            proof: executionPayloadProof
+        });
+
+        BeaconBlockhashVerifier.SszProof memory _blockNumberProof = BeaconBlockhashVerifier.SszProof({
+            leaf: 0xb0af360100000000000000000000000000000000000000000000000000000000,
+            proof: blockNumberProof
         });
 
         BeaconBlockhashVerifier.SszProof memory _blockhashProof = BeaconBlockhashVerifier.SszProof({
@@ -110,7 +159,13 @@ contract BeaconBlockhashTest is Test {
         console.log(
             "calldata size: ",
             abi.encode(
-                SLOT_9568225_TIMESTAMP, _currentStateRootProof, _historicalStateRootProof, 57_088, _blockhashProof
+                SLOT_9568225_TIMESTAMP,
+                _currentStateRootProof,
+                _historicalStateRootProof,
+                57_088,
+                _executionPayloadProof,
+                _blockNumberProof,
+                _blockhashProof
             ).length + 4
         );
 
@@ -121,10 +176,14 @@ contract BeaconBlockhashTest is Test {
             // historicalStateRootGIndex: 319_232,
             // 319_232 % 2 ** floor(log_2(319_232))
             historicalStateRootLocalIndex: 57_088,
+            executionPayloadProof: _executionPayloadProof,
+            blockNumberProof: _blockNumberProof,
             blockhashProof: _blockhashProof
         });
 
-        assertEq(_beaconBlockhash.isBlockhashVerified(_blockhashProof.leaf), true);
+        assertEq(
+            _beaconBlockhash.getVerifiedBlockhash(_parseBeBlockNumber(_blockNumberProof.leaf)), _blockhashProof.leaf
+        );
     }
 
     function test_historicalBlock() public {
@@ -176,17 +235,26 @@ contract BeaconBlockhashTest is Test {
         historicalStateRootProof[11] = 0x1f7325ec65a54c6e6b413845ea38dbda1974d8966eda7de95dcc4ad8d4b676d1;
         historicalStateRootProof[12] = 0xc8ce7af253f68b9cadea80165571ec410d17a366281bacd052972d99fc0c5fcb;
 
-        bytes32[] memory blockhashProof = new bytes32[](10);
+        bytes32[] memory executionPayloadProof = new bytes32[](5);
+        executionPayloadProof[0] = 0xab1c2a0300000000000000000000000000000000000000000000000000000000;
+        executionPayloadProof[1] = 0x744f502e6194c14330052d704bfafa60925bf00d8a2f1568e14e365f6ca63be1;
+        executionPayloadProof[2] = 0xdb56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71;
+        executionPayloadProof[3] = 0xb9116d75914722f1c89cf2bd51b11bd3167615abc265408e00822166d158b5c9;
+        executionPayloadProof[4] = 0x51b7c46c28d41aa08cb77b8514cc413f37105d6e325095b8e06003721775da11;
+
+        bytes32[] memory blockNumberProof = new bytes32[](5);
+        blockNumberProof[0] = 0x80c3c90100000000000000000000000000000000000000000000000000000000;
+        blockNumberProof[1] = 0xdeab16349db41db0719e5e959c47663b89fe78b82265251e1cfbf8a05936dd71;
+        blockNumberProof[2] = 0x923f26a890146f0774bb9686d25819fb898c44b63fdd0c83dc3ab2e2b035d095;
+        blockNumberProof[3] = 0xdc7b9eeacbcd6e82918ecc8939fc718858aec6e822bc0356a123605455a6cf7b;
+        blockNumberProof[4] = 0x2a36e25ced18cdb69e1560a10f42aec4acd87e7661ff35501380e212b10e0e62;
+
+        bytes32[] memory blockhashProof = new bytes32[](5);
         blockhashProof[0] = 0x20d6f4e6356bc159b368341627ac77e06d831f4a86d0691cb15ac6512eeef662;
         blockhashProof[1] = 0x31ff5fb7f6606c72dd7f8db7f47af00edaff95cf829adcbb93b7e263a9f517de;
         blockhashProof[2] = 0x178fb3a7402845508c4c141bacec3bfd7961f7206f7588448c7d07b3956b9214;
         blockhashProof[3] = 0x2bdb838c7a4806dfd1fe2b2769cec1c79e4bf7d3833f06e952536ffcd056cfaf;
         blockhashProof[4] = 0x2a36e25ced18cdb69e1560a10f42aec4acd87e7661ff35501380e212b10e0e62;
-        blockhashProof[5] = 0xab1c2a0300000000000000000000000000000000000000000000000000000000;
-        blockhashProof[6] = 0x744f502e6194c14330052d704bfafa60925bf00d8a2f1568e14e365f6ca63be1;
-        blockhashProof[7] = 0xdb56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71;
-        blockhashProof[8] = 0xb9116d75914722f1c89cf2bd51b11bd3167615abc265408e00822166d158b5c9;
-        blockhashProof[9] = 0x51b7c46c28d41aa08cb77b8514cc413f37105d6e325095b8e06003721775da11;
 
         BeaconBlockhashVerifier.SszProof memory _summaryRootProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0xf4d009882fd5e34e2b235bb8e1727ef3a16a0797244ee209b14a7402db5cf0fc,
@@ -196,6 +264,16 @@ contract BeaconBlockhashTest is Test {
         BeaconBlockhashVerifier.SszProof memory _historicalStateRootProof = BeaconBlockhashVerifier.SszProof({
             leaf: 0xfd22b356591114ba21745e976f81a97bfefbfe9839d17e01adae77cc02c7268f,
             proof: historicalStateRootProof
+        });
+
+        BeaconBlockhashVerifier.SszProof memory _executionPayloadProof = BeaconBlockhashVerifier.SszProof({
+            leaf: 0x106830a56464d2157bf4641f743fdc3be332e24e31061a5c553ab25c75f94a95,
+            proof: executionPayloadProof
+        });
+
+        BeaconBlockhashVerifier.SszProof memory _blockNumberProof = BeaconBlockhashVerifier.SszProof({
+            leaf: 0x9b90360100000000000000000000000000000000000000000000000000000000,
+            proof: blockNumberProof
         });
 
         BeaconBlockhashVerifier.SszProof memory _blockhashProof = BeaconBlockhashVerifier.SszProof({
@@ -212,6 +290,8 @@ contract BeaconBlockhashTest is Test {
                 1_811_940_145,
                 _historicalStateRootProof,
                 8128,
+                _executionPayloadProof,
+                _blockNumberProof,
                 _blockhashProof
             ).length + 4
         );
@@ -227,9 +307,25 @@ contract BeaconBlockhashTest is Test {
             // historicalStateRootGIndex: 16_320,
             // 16_320 % 2 ** floor(log_2(16_320))
             historicalStateRootLocalIndex: 8128,
+            executionPayloadProof: _executionPayloadProof,
+            blockNumberProof: _blockNumberProof,
             blockhashProof: _blockhashProof
         });
 
-        assertEq(_beaconBlockhash.isBlockhashVerified(_blockhashProof.leaf), true);
+        assertEq(
+            _beaconBlockhash.getVerifiedBlockhash(_parseBeBlockNumber(_blockNumberProof.leaf)), _blockhashProof.leaf
+        );
+    }
+
+    function _parseBeBlockNumber(bytes32 beBlockNumber) internal pure returns (uint256 blockNumber) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            blockNumber := or(blockNumber, byte(0, beBlockNumber))
+            blockNumber := or(blockNumber, shl(8, byte(1, beBlockNumber)))
+            blockNumber := or(blockNumber, shl(16, byte(2, beBlockNumber)))
+            blockNumber := or(blockNumber, shl(24, byte(3, beBlockNumber)))
+            blockNumber := or(blockNumber, shl(32, byte(4, beBlockNumber)))
+            blockNumber := or(blockNumber, shl(40, byte(5, beBlockNumber)))
+        }
     }
 }
