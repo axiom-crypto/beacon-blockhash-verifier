@@ -1,13 +1,14 @@
 use crate::config::Mainnet;
+use crate::error::SszStorageProofGenerationError;
 use crate::proofs::{
     generate_blockhash_proof, generate_blockhash_proof_from_blocks,
     generate_eip4788_blockhash_proof, generate_storage_proof, verify_blockhash_proof,
 };
 use crate::types::{Eip4788BlockhashProof, L1Provider, SszProof, VerifyingChain};
-use alloy_primitives::{Address, FixedBytes, B256};
+use alloy_primitives::{hex, Address, FixedBytes, B256};
 use alloy_provider::{Identity, Provider, ProviderBuilder, RootProvider};
 use alloy_rpc_client::{BuiltInConnectionString, ClientBuilder};
-use alloy_rpc_types_eth::{BlockId, TransactionRequest};
+use alloy_rpc_types_eth::{BlockId, BlockTransactionsKind, TransactionRequest};
 use alloy_transport::BoxTransport;
 use beacon_api_client::{mainnet::MainnetClientTypes, Client};
 use op_alloy_network::Optimism;
@@ -65,7 +66,7 @@ async fn test_storage_proof() {
     .unwrap();
 }
 
-#[ignore]
+// #[ignore]
 #[tokio::test]
 async fn test_current_block_proof() {
     let state = setup().await;
@@ -80,7 +81,7 @@ async fn test_current_block_proof() {
     assert!(matches!(proof, SszProof::CurrentBlock { .. }));
 }
 
-#[ignore]
+// #[ignore]
 #[tokio::test]
 async fn test_recent_historical_block_proof() {
     let state = setup().await;
@@ -95,7 +96,7 @@ async fn test_recent_historical_block_proof() {
     assert!(matches!(proof, SszProof::RecentHistoricalBlock { .. }));
 }
 
-#[ignore]
+// #[ignore]
 #[tokio::test]
 async fn test_historical_block_proof() {
     let state = setup().await;

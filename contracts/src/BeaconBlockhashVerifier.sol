@@ -65,6 +65,9 @@ contract BeaconBlockhashVerifier {
     /// struct.
     uint256 internal constant EXECUTION_PAYLOAD_LOCAL_INDEX = 24;
 
+    /// @dev Index of `block_number` within the `ExecutionPayload` struct.
+    uint256 internal constant BLOCK_NUMBER_LOCAL_INDEX = 6;
+
     /// @dev Index of `block_hash` within the `ExecutionPayload` struct.
     uint256 internal constant BLOCKHASH_LOCAL_INDEX = 12;
 
@@ -75,7 +78,8 @@ contract BeaconBlockhashVerifier {
     /// @dev Index of the `state_roots` vector within the `BeaconState` struct.
     uint256 internal constant STATE_ROOTS_VECTOR_LOCAL_INDEX = 6;
 
-    /// @dev Index of the `historical_summary_roots` list within the `BeaconState` struct.
+    /// @dev Index of the `historical_summary_roots` list within the
+    /// `BeaconState` struct.
     uint256 internal constant HISTORICAL_SUMMARY_LIST_LOCAL_INDEX = 27;
 
     /// @dev External call to the beacon roots contract failed.
@@ -89,6 +93,12 @@ contract BeaconBlockhashVerifier {
 
     /// @dev Historical state root verification failed.
     error InvalidHistoricalStateRoot();
+
+    /// @dev Execution payload verification failed.
+    error InvalidExecutionPayload();
+
+    /// @dev Block number verification failed.
+    error InvalidBlockNumber();
 
     /// @dev Blockhash verification failed.
     error InvalidBlockhash();
@@ -107,15 +117,27 @@ contract BeaconBlockhashVerifier {
     function verifyCurrentBlock(
         uint256 timestamp,
         SszProof calldata currentStateRootProof,
+        SszProof calldata executionPayloadProof,
+        SszProof calldata blockNumberProof,
         SszProof calldata blockhashProof
     ) external {
         bytes32 currentSszBlockRoot = _fetchBeaconRoot(timestamp);
 
         _verifyBeaconStateRoot({ stateRootProof: currentStateRootProof, beaconBlockRoot: currentSszBlockRoot });
 
-        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: currentStateRootProof.leaf });
+        _verifyExecutionPayload({
+            executionPayloadProof: executionPayloadProof,
+            beaconStateRoot: currentStateRootProof.leaf
+        });
 
-        _storeVerifiedBlockhash(blockhashProof.leaf);
+        _verifyExecutionBlockNumber({
+            blockNumberProof: blockNumberProof,
+            executionPayloadRoot: executionPayloadProof.leaf
+        });
+
+        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: executionPayloadProof.leaf });
+
+        _storeVerifiedBlockhash(_parseBeBlockNumber(blockNumberProof.leaf), blockhashProof.leaf);
     }
 
     /// @notice Verifies the integrity of a blockhash for a block between `x -
@@ -136,6 +158,8 @@ contract BeaconBlockhashVerifier {
         SszProof calldata currentStateRootProof,
         SszProof calldata historicalStateRootProof,
         uint256 historicalStateRootLocalIndex, // Relative to the `BeaconState` root
+        SszProof calldata executionPayloadProof,
+        SszProof calldata blockNumberProof,
         SszProof calldata blockhashProof
     ) external {
         bytes32 currentSszBlockRoot = _fetchBeaconRoot(timestamp);
@@ -148,9 +172,19 @@ contract BeaconBlockhashVerifier {
             beaconStateRoot: currentStateRootProof.leaf
         });
 
-        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: historicalStateRootProof.leaf });
+        _verifyExecutionPayload({
+            executionPayloadProof: executionPayloadProof,
+            beaconStateRoot: historicalStateRootProof.leaf
+        });
 
-        _storeVerifiedBlockhash(blockhashProof.leaf);
+        _verifyExecutionBlockNumber({
+            blockNumberProof: blockNumberProof,
+            executionPayloadRoot: executionPayloadProof.leaf
+        });
+
+        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: executionPayloadProof.leaf });
+
+        _storeVerifiedBlockhash(_parseBeBlockNumber(blockNumberProof.leaf), blockhashProof.leaf);
     }
 
     /// @notice Verifies the integrity of a blockhash for block between `x -
@@ -181,6 +215,8 @@ contract BeaconBlockhashVerifier {
         uint256 stateSummaryRootLocalIndex, // Relative to the `BeaconState` root
         SszProof calldata historicalStateRootProof,
         uint256 historicalStateRootLocalIndex, // Relative to the state summary root
+        SszProof calldata executionPayloadProof,
+        SszProof calldata blockNumberProof,
         SszProof calldata blockhashProof
     ) external {
         bytes32 currentSszBlockRoot = _fetchBeaconRoot(timestamp);
@@ -199,9 +235,19 @@ contract BeaconBlockhashVerifier {
             stateSummaryRoot: summaryRootProof.leaf
         });
 
-        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: historicalStateRootProof.leaf });
+        _verifyExecutionPayload({
+            executionPayloadProof: executionPayloadProof,
+            beaconStateRoot: historicalStateRootProof.leaf
+        });
 
-        _storeVerifiedBlockhash(blockhashProof.leaf);
+        _verifyExecutionBlockNumber({
+            blockNumberProof: blockNumberProof,
+            executionPayloadRoot: executionPayloadProof.leaf
+        });
+
+        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: executionPayloadProof.leaf });
+
+        _storeVerifiedBlockhash(_parseBeBlockNumber(blockNumberProof.leaf), blockhashProof.leaf);
     }
 
     /// @dev Verifies a `BeaconState` root into a beacon block root.
@@ -385,25 +431,36 @@ contract BeaconBlockhashVerifier {
         ) revert InvalidHistoricalStateRoot();
     }
 
+    function _verifyExecutionPayload(SszProof calldata executionPayloadProof, bytes32 beaconStateRoot) internal view {
+        if (
+            !_processInclusionProofSha256({
+                proof: executionPayloadProof.proof,
+                leaf: executionPayloadProof.leaf,
+                root: beaconStateRoot,
+                localIndex: EXECUTION_PAYLOAD_LOCAL_INDEX,
+                expectedHeight: EXECUTION_PAYLOAD_TREE_HEIGHT
+            })
+        ) revert InvalidExecutionPayload();
+    }
+
+    function _verifyExecutionBlockNumber(SszProof calldata blockNumberProof, bytes32 executionPayloadRoot)
+        internal
+        view
+    {
+        if (
+            !_processInclusionProofSha256({
+                proof: blockNumberProof.proof,
+                leaf: blockNumberProof.leaf,
+                root: executionPayloadRoot,
+                localIndex: BLOCK_NUMBER_LOCAL_INDEX,
+                expectedHeight: EXECUTION_PAYLOAD_TREE_HEIGHT
+            })
+        ) revert InvalidBlockNumber();
+    }
+
     // The `ExecutionPayload` is a field within the `BeaconState` struct.
     // The local index here will be calculated relative to the `BeaconState`
     // root.
-
-    /// @dev The amount of nodes at the layer of `ExecutionPayload` fields that are
-    /// descendant of each of the nodes at the layer of `BeaconState` fields.
-    /// In other words, every node at the `BeaconState` layer has
-    /// `E_NODES_PER_S_NODE` child nodes at the `ExecutionPayload` layer.
-    uint256 internal constant E_NODES_PER_S_NODE = 1 << EXECUTION_PAYLOAD_TREE_HEIGHT;
-
-    /// @dev Navigate to the subtree that contains the `ExecutionPayload` fields.
-    /// (This will be the local index of the first field of `ExecutionPayload`)
-    uint256 internal constant EXECUTION_PAYLOAD_TREE_OFFSET = E_NODES_PER_S_NODE * EXECUTION_PAYLOAD_LOCAL_INDEX;
-
-    /// @dev Navigate to the `block_hash` field within the `ExecutionPayload`
-    /// struct. This is the local index *relative to the `BeaconState`
-    /// struct*. (`BLOCKHASH_LOCAL_INDEX` is local index relative to
-    /// `ExecutionPayload` struct).
-    uint256 internal constant BLOCKHASH_B_LOCAL_INDEX = EXECUTION_PAYLOAD_TREE_OFFSET + BLOCKHASH_LOCAL_INDEX;
 
     /// @dev Verifies a blockhash into a `BeaconState` root
     ///
@@ -416,10 +473,28 @@ contract BeaconBlockhashVerifier {
                 proof: blockhashProof.proof,
                 leaf: blockhashProof.leaf,
                 root: beaconStateRoot,
-                localIndex: BLOCKHASH_B_LOCAL_INDEX,
-                expectedHeight: STATE_ROOT_TREE_HEIGHT + EXECUTION_PAYLOAD_TREE_HEIGHT
+                localIndex: BLOCKHASH_LOCAL_INDEX,
+                expectedHeight: EXECUTION_PAYLOAD_TREE_HEIGHT
             })
         ) revert InvalidBlockhash();
+    }
+
+    /// @notice Parses a big-endian formatted block number
+    /// @dev This only parses the first 6 bytes since a uint48 is enough to
+    /// encode a block number.
+    ///
+    /// @param beBlockNumber The big-endian formatted block number
+    /// @return blockNumber The parsed block number
+    function _parseBeBlockNumber(bytes32 beBlockNumber) internal pure returns (uint256 blockNumber) {
+        /// @solidity memory-safe-assembly
+        assembly {
+            blockNumber := or(blockNumber, byte(0, beBlockNumber))
+            blockNumber := or(blockNumber, shl(8, byte(1, beBlockNumber)))
+            blockNumber := or(blockNumber, shl(16, byte(2, beBlockNumber)))
+            blockNumber := or(blockNumber, shl(24, byte(3, beBlockNumber)))
+            blockNumber := or(blockNumber, shl(32, byte(4, beBlockNumber)))
+            blockNumber := or(blockNumber, shl(40, byte(5, beBlockNumber)))
+        }
     }
 
     /// @dev This contract uses the entire storage space of the contract as a
@@ -427,10 +502,10 @@ contract BeaconBlockhashVerifier {
     /// this is a safe way to store the verified blockhashes.
     ///
     /// @param _blockhash The blockhash to store
-    function _storeVerifiedBlockhash(bytes32 _blockhash) internal {
+    function _storeVerifiedBlockhash(uint256 blockNumber, bytes32 _blockhash) internal {
         /// @solidity memory-safe-assembly
         assembly {
-            sstore(_blockhash, 1)
+            sstore(blockNumber, _blockhash)
         }
     }
 
@@ -439,12 +514,12 @@ contract BeaconBlockhashVerifier {
     /// mapping between `blockhash`es and a `bool`. Assuming no hash collisions,
     /// this is a safe way to store the verified blockhashes.
     ///
-    /// @param _blockhash The blockhash to check
-    /// @return out Whether the blockhash has been verified
-    function isBlockhashVerified(bytes32 _blockhash) external view returns (bool out) {
+    /// @param blockNumber The block number to check
+    /// @return _blockhash The blockhash of the block
+    function getVerifiedBlockhash(uint256 blockNumber) external view returns (bytes32 _blockhash) {
         /// @solidity memory-safe-assembly
         assembly {
-            out := sload(_blockhash)
+            _blockhash := sload(blockNumber)
         }
     }
 
@@ -473,6 +548,13 @@ contract BeaconBlockhashVerifier {
 
         /// @solidity memory-safe-assembly
         assembly {
+            function callSha256(rdataOffset) {
+                if iszero(staticcall(gas(), SHA256_PRECOMPILE, 0x00, 0x40, rdataOffset, 0x20)) {
+                    mstore(0x00, 0xcd51ef01) // error Sha256CallFailed()
+                    revert(0x1c, 0x04)
+                }
+            }
+
             switch mod(localIndex, 2)
             case 0 {
                 mstore(0x00, leaf)
@@ -493,26 +575,17 @@ contract BeaconBlockhashVerifier {
                 switch mod(localIndex, 2)
                 case 0 {
                     // Store returndata at 0x00
-                    if iszero(staticcall(gas(), SHA256_PRECOMPILE, 0x00, 0x40, 0x00, 0x20)) {
-                        mstore(0x00, 0xcd51ef01) // error Sha256CallFailed()
-                        revert(0x1c, 0x04)
-                    }
+                    callSha256(0x00)
                     mstore(0x20, calldataload(i))
                 }
                 default {
                     // Store returndata at 0x20
-                    if iszero(staticcall(gas(), SHA256_PRECOMPILE, 0x00, 0x40, 0x20, 0x20)) {
-                        mstore(0x00, 0xcd51ef01) // error Sha256CallFailed()
-                        revert(0x1c, 0x04)
-                    }
+                    callSha256(0x20)
                     mstore(0x00, calldataload(i))
                 }
             }
 
-            if iszero(staticcall(gas(), SHA256_PRECOMPILE, 0x00, 0x40, 0x00, 0x20)) {
-                mstore(0x00, 0xcd51ef01) // error Sha256CallFailed()
-                revert(0x1c, 0x04)
-            }
+            callSha256(0x00)
             let derivedRoot := mload(0x00)
 
             valid := eq(derivedRoot, root)

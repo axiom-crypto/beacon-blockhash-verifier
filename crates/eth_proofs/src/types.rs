@@ -39,17 +39,23 @@ impl From<ProofAndWitness> for SszProofSegment {
 pub enum SszProof {
     CurrentBlock {
         curr_state_root_proof: SszProofSegment,
+        execution_payload_proof: SszProofSegment,
+        block_number_proof: SszProofSegment,
         blockhash_proof: SszProofSegment,
     },
     RecentHistoricalBlock {
         curr_state_root_proof: SszProofSegment,
         hist_state_root_proof: SszProofSegment,
+        execution_payload_proof: SszProofSegment,
+        block_number_proof: SszProofSegment,
         blockhash_proof: SszProofSegment,
     },
     HistoricalBlock {
         curr_state_root_proof: SszProofSegment,
         summary_root_proof: SszProofSegment,
         hist_state_root_proof: SszProofSegment,
+        execution_payload_proof: SszProofSegment,
+        block_number_proof: SszProofSegment,
         blockhash_proof: SszProofSegment,
     },
     PreMergeBlock {},
