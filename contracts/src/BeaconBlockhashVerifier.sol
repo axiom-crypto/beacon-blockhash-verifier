@@ -26,6 +26,10 @@ uint256 constant EXECUTION_PAYLOAD_TREE_HEIGHT = 5;
 /// @dev `BeaconBlockhashVerifier` verifies the integrity of post-Capella
 /// blockhashes via SSZ proofs and persists them into the contract's storage.
 ///
+/// This contract uses the entire storage space of the contract as a
+/// mapping between `block.number`s and `blockhash`es. Since each number
+/// is unique, this is a safe way to store the verified blockhashes.
+///
 /// This contract is expected to be launched while the Deneb hardfork is active.
 contract BeaconBlockhashVerifier {
     struct SszProof {
@@ -115,8 +119,13 @@ contract BeaconBlockhashVerifier {
     /// @param timestamp The EIP-4788 timestamp.
     /// @param currentStateRootProof The proof from the `BeaconState` root into
     /// the beacon block root.
+    /// @param executionPayloadProof The proof from the execution payload into
+    /// the `BeaconState` root.
+    /// @param blockNumberProof The proof from the execution payload's block
+    /// number into the `ExecutionPayload` root. This is used as the index
+    /// during persistence of the verified blockhash.
     /// @param blockhashProof The proof from the execution payload's
-    /// blockhash into the `BeaconState` root.
+    /// blockhash into the `ExecutionPayload` root.
     function verifyCurrentBlock(
         uint256 timestamp,
         SszProof calldata currentStateRootProof,
@@ -138,7 +147,7 @@ contract BeaconBlockhashVerifier {
             executionPayloadRoot: executionPayloadProof.leaf
         });
 
-        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: executionPayloadProof.leaf });
+        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, executionPayloadRoot: executionPayloadProof.leaf });
 
         _storeVerifiedBlockhash(_parseBeBlockNumber(blockNumberProof.leaf), blockhashProof.leaf);
     }
@@ -154,8 +163,13 @@ contract BeaconBlockhashVerifier {
     /// (within `state_roots` Vector) into the `BeaconState` root.
     /// @param historicalStateRootLocalIndex The local index of the historical
     /// state root (relative to the `BeaconState` root).
+    /// @param executionPayloadProof The proof from the execution payload into
+    /// the historical `BeaconState` root.
+    /// @param blockNumberProof The proof from the execution payload's block
+    /// number into the `ExecutionPayload` root. This is used as the index
+    /// during persistence of the verified blockhash.
     /// @param blockhashProof The proof from the execution payload's
-    /// blockhash into the historical `BeaconState` root.
+    /// blockhash into the `ExecutionPayload` root.
     function verifyRecentHistoricalBlock(
         uint256 timestamp,
         SszProof calldata currentStateRootProof,
@@ -185,7 +199,7 @@ contract BeaconBlockhashVerifier {
             executionPayloadRoot: executionPayloadProof.leaf
         });
 
-        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: executionPayloadProof.leaf });
+        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, executionPayloadRoot: executionPayloadProof.leaf });
 
         _storeVerifiedBlockhash(_parseBeBlockNumber(blockNumberProof.leaf), blockhashProof.leaf);
     }
@@ -198,19 +212,20 @@ contract BeaconBlockhashVerifier {
     /// @param currentStateRootProof The proof from the `BeaconState` root into
     /// the beacon block root.
     /// @param summaryRootProof The proof from the historical state summary root
-    /// (within the `historical_summaries` List) into the `BeaconState` root. The
-    /// `index` field should be the generalized index *relative to the beacon
-    /// state root*.
+    /// (within the `historical_summaries` List) into the `BeaconState` root.
     /// @param stateSummaryRootLocalIndex The local index of the historical state
     /// summary root (relative to the `BeaconState` root).
     /// @param historicalStateRootProof The proof from the historical state root
     /// (within the `state_roots` Vector) into the historical state summary root.
-    /// The `index` field should be the generalized index *relative to the
-    /// state summary root*.
     /// @param historicalStateRootLocalIndex The local index of the historical
     /// state root (relative to the state summary root).
+    /// @param executionPayloadProof The proof from the execution payload into
+    /// the historical `BeaconState` root.
+    /// @param blockNumberProof The proof from the execution payload's block
+    /// number into the `ExecutionPayload` root. This is used as the index
+    /// during persistence of the verified blockhash.
     /// @param blockhashProof The proof from the execution payload's
-    /// blockhash into the historical `BeaconState` root.
+    /// blockhash into the `ExecutionPayload` root.
     function verifyHistoricalBlock(
         uint256 timestamp,
         SszProof calldata currentStateRootProof,
@@ -248,7 +263,7 @@ contract BeaconBlockhashVerifier {
             executionPayloadRoot: executionPayloadProof.leaf
         });
 
-        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, beaconStateRoot: executionPayloadProof.leaf });
+        _verifyExecutionBlockhash({ blockhashProof: blockhashProof, executionPayloadRoot: executionPayloadProof.leaf });
 
         _storeVerifiedBlockhash(_parseBeBlockNumber(blockNumberProof.leaf), blockhashProof.leaf);
     }
@@ -257,7 +272,7 @@ contract BeaconBlockhashVerifier {
     ///
     /// @param stateRootProof The proof from the state root into the beacon
     /// block root.
-    /// @param beaconBlockRoot The beacon block root to compare the proof
+    /// @param beaconBlockRoot The beacon block root to reconcile the proof
     /// against.
     function _verifyBeaconStateRoot(SszProof calldata stateRootProof, bytes32 beaconBlockRoot) internal view {
         if (
@@ -298,7 +313,8 @@ contract BeaconBlockhashVerifier {
     /// into the `BeaconState` root.
     /// @param historicalStateRootLocalIndex The local index of the historical
     /// state root (relative to the `BeaconState` root).
-    /// @param beaconStateRoot The `BeaconState` root to compare the proof against.
+    /// @param beaconStateRoot The `BeaconState` root to reconcile the proof
+    /// against.
     function _verifyHistoricalStateRootIntoBeaconStateRoot(
         SszProof calldata historicalStateRootProof,
         uint256 historicalStateRootLocalIndex,
@@ -332,25 +348,24 @@ contract BeaconBlockhashVerifier {
     /// lengths are mixed in to a List's tree hash.
     uint256 internal constant HR_NODES_PER_S_NODE = 1 << (HISTORICAL_SUMMARY_ROOT_VECTOR_TREE_HEIGHT + 1);
 
-    /// @dev Amount of nodes in the `historical_summary_roots` vector
-    uint256 internal constant HISTORICAL_SUMMARY_ROOT_VECTOR_NODES = 1 << HISTORICAL_SUMMARY_ROOT_VECTOR_TREE_HEIGHT;
-
-    /// @dev The maximum number of `HistoricalSummary` roots that can be
-    /// stored in the `historical_summary_roots` vector.
-    uint256 internal constant HISTORICAL_SUMMARY_VECTOR_LIMIT = 1 << HISTORICAL_SUMMARY_ROOT_VECTOR_TREE_HEIGHT;
-
     /// @dev For every node at the layer holding `BeaconState`'s fields, there are
     /// `HSF_NODES_PER_S_NODE` at the layer of the `HistoricalSummary` struct's
     /// fields.
     uint256 internal constant HSF_NODES_PER_S_NODE = HR_NODES_PER_S_NODE << HISTORICAL_SUMMARY_TREE_HEIGHT;
 
     /// @dev The minimum local index of the `HistoricalSummary` fields (relative
-    /// to the `BeaconState` root).
+    /// to the `BeaconState` root). We multiply by
+    /// `HISTORICAL_SUMMARY_LIST_LOCAL_INDEX` to navigate to the correct
+    /// subtree.
     uint256 internal constant HISTORICAL_SUMMARY_FIELDS_LOCAL_INDEX_MIN =
         HSF_NODES_PER_S_NODE * HISTORICAL_SUMMARY_LIST_LOCAL_INDEX;
 
     /// @dev The number of nodes in the `HistoricalSummary` tree.
     uint256 internal constant HISTORICAL_SUMMARY_TREE_NODES = (1 << HISTORICAL_SUMMARY_TREE_HEIGHT);
+
+    /// @dev The maximum number of `HistoricalSummary` roots that can be
+    /// stored in the `historical_summary_roots` vector.
+    uint256 internal constant HISTORICAL_SUMMARY_VECTOR_LIMIT = 1 << HISTORICAL_SUMMARY_ROOT_VECTOR_TREE_HEIGHT;
 
     /// @dev The exclusive maximum local index of the `HistoricalSummary` fields
     /// (relative to the `BeaconState` root).
@@ -368,7 +383,7 @@ contract BeaconBlockhashVerifier {
     /// `BeaconState` root.
     /// @param stateSummaryRootLocalIndex The local index of the state summary
     /// root (relative to the `BeaconState` root).
-    /// @param beaconStateRoot The `BeaconState` root to compare the proof
+    /// @param beaconStateRoot The `BeaconState` root to reconcile the proof
     /// against.
     function _verifyHistoricalStateSummaryRoot(
         SszProof calldata summaryRootProof,
@@ -412,7 +427,7 @@ contract BeaconBlockhashVerifier {
     /// into the state summary root.
     /// @param historicalStateRootLocalIndex The local index of the historical
     /// state root (relative to the state summary root).
-    /// @param stateSummaryRoot The state summary root to compare the proof
+    /// @param stateSummaryRoot The state summary root to reconcile the proof
     /// against.
     function _verifyHistoricalStateRootIntoStateSummaryRoot(
         SszProof calldata historicalStateRootProof,
@@ -434,6 +449,12 @@ contract BeaconBlockhashVerifier {
         ) revert InvalidHistoricalStateRoot();
     }
 
+    /// @dev Verifies an `ExecutionPayload` into the `BeaconState` root
+    ///
+    /// @param executionPayloadProof The proof from the execution payload into
+    /// the `BeaconState` root.
+    /// @param beaconStateRoot The `BeaconState` root to reconcile the proof
+    /// against.
     function _verifyExecutionPayload(SszProof calldata executionPayloadProof, bytes32 beaconStateRoot) internal view {
         if (
             !_processInclusionProofSha256({
@@ -446,6 +467,11 @@ contract BeaconBlockhashVerifier {
         ) revert InvalidExecutionPayload();
     }
 
+    /// @dev Verifies a block number into an `ExecutionPayload` root
+    ///
+    /// @param blockNumberProof The proof from the execution payload's block
+    /// number into the `ExecutionPayload` root.
+    /// @param executionPayloadRoot The `ExecutionPayload` root to reconcile the proof against.
     function _verifyExecutionBlockNumber(SszProof calldata blockNumberProof, bytes32 executionPayloadRoot)
         internal
         view
@@ -461,21 +487,17 @@ contract BeaconBlockhashVerifier {
         ) revert InvalidBlockNumber();
     }
 
-    // The `ExecutionPayload` is a field within the `BeaconState` struct.
-    // The local index here will be calculated relative to the `BeaconState`
-    // root.
-
-    /// @dev Verifies a blockhash into a `BeaconState` root
+    /// @dev Verifies a blockhash into an `ExecutionPayload` root
     ///
     /// @param blockhashProof The proof from the execution payload's blockhash
-    /// into the `BeaconState` root.
-    /// @param beaconStateRoot The `BeaconState` root to compare the proof against.
-    function _verifyExecutionBlockhash(SszProof calldata blockhashProof, bytes32 beaconStateRoot) internal view {
+    /// into the `ExecutionPayload` root.
+    /// @param executionPayloadRoot The `ExecutionPayload` root to reconcile the proof against.
+    function _verifyExecutionBlockhash(SszProof calldata blockhashProof, bytes32 executionPayloadRoot) internal view {
         if (
             !_processInclusionProofSha256({
                 proof: blockhashProof.proof,
                 leaf: blockhashProof.leaf,
-                root: beaconStateRoot,
+                root: executionPayloadRoot,
                 localIndex: BLOCKHASH_LOCAL_INDEX,
                 expectedHeight: EXECUTION_PAYLOAD_TREE_HEIGHT
             })
@@ -501,9 +523,10 @@ contract BeaconBlockhashVerifier {
     }
 
     /// @dev This contract uses the entire storage space of the contract as a
-    /// mapping between `block.number`s and a `blockhash`es. Since each number
+    /// mapping between `block.number`s and `blockhash`es. Since each number
     /// is unique, this is a safe way to store the verified blockhashes.
     ///
+    /// @param blockNumber The block number to map the `_blockhash` into
     /// @param _blockhash The blockhash to store
     function _storeVerifiedBlockhash(uint256 blockNumber, bytes32 _blockhash) internal {
         /// @solidity memory-safe-assembly
@@ -514,8 +537,10 @@ contract BeaconBlockhashVerifier {
 
     /// @notice Checks if a blockhash has been verified
     /// @dev This contract uses the entire storage space of the contract as a
-    /// mapping between `block.number`s and a `blockhash`es. Since each number
+    /// mapping between `block.number`s and `blockhash`es. Since each number
     /// is unique, this is a safe way to store the verified blockhashes.
+    ///
+    /// REVERTS on unverified `_blockhash`
     ///
     /// @param blockNumber The block number to check
     /// @return _blockhash The blockhash of the block
@@ -537,7 +562,7 @@ contract BeaconBlockhashVerifier {
     ///
     /// @param proof The inclusion proof.
     /// @param leaf The leaf to be proven.
-    /// @param root The root to compare the proof against.
+    /// @param root The root to reconcile the proof against.
     /// @param localIndex The local index of the leaf.
     /// @param expectedHeight The height of the tree that the proof is for.
     /// @return valid A boolean indicating whether the derived root from the proof

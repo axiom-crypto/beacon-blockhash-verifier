@@ -1,0 +1,81 @@
+{
+  "ssz_proof": {
+    "block_number_proof": {
+      "branch": [
+        "0x80c3c90100000000000000000000000000000000000000000000000000000000",
+        "0x91931c7d2514f5b67fa88c8b538f8d7c6c6b17663060af683c3b03b95de2d98b",
+        "0x274dde287f04ddc191edd140343a7f103f1e86b43859eafee5ee5e143a71cd43",
+        "0x805abf3bd28553a83e88e09c275ff45d19c192538bcb6f99c1ebe6a6ebd47426",
+        "0x0c0b3c320c5dbeb31f092c54aaab8e0d280a5252d351416466804c51d843cbc5"
+      ],
+      "generalized_index": 38,
+      "leaf": "0xb0af360100000000000000000000000000000000000000000000000000000000",
+      "local_index": 6,
+      "root": "0x25b7befd7a1d050dba63e995eb0ba207f1a93b3b15b77838d5179570e34065d1"
+    },
+    "blockhash_proof": {
+      "branch": [
+        "0xd40f7f334f2f0cfac3fcfe4cbd9ef399f4550d70a3864024c884886a15ef26e2",
+        "0x59d1cd533253cd8879842dcd842b097cab2060750a88f50714bc541cf00edfb8",
+        "0x866af279d44595cab607a1332426fcb127326102c795b0e3f281027c8bef8978",
+        "0x4d444478b8416a735bfcd11f0c4fdbc9ce8ea8f5284b43d7603a6d51a6f04178",
+        "0x0c0b3c320c5dbeb31f092c54aaab8e0d280a5252d351416466804c51d843cbc5"
+      ],
+      "generalized_index": 44,
+      "leaf": "0x41b7ee50ec947f08156d9bddbaf5e5b21de9998e6dc2a53ec7f5a82bf4c9878c",
+      "local_index": 12,
+      "root": "0x25b7befd7a1d050dba63e995eb0ba207f1a93b3b15b77838d5179570e34065d1"
+    },
+    "curr_state_root_proof": {
+      "branch": [
+        "0x1d0e66c14b2df6a592e348ff1a785f6a1da4d3bff3f03b1c37706adf4b9c60d2",
+        "0x63927d5d06977fc159fb1a023208e97ae3b11ef4d9049209ba2dd1fdf6df5553",
+        "0xe50667bec9fe6f0f2c93e55ec51f1e42e427f6894ce13ff3f2bb5a783c59ae7a"
+      ],
+      "generalized_index": 11,
+      "leaf": "0x5b5b58c88c8bca6a8c3901892e2dfded3ead0a67602cecb9dc0fa2fc4cc7984e",
+      "local_index": 3,
+      "root": "0xba2c7b3b35f8eff254a0e30300feed6a2885bdc299fd1eb8823a73b922b23b59"
+    },
+    "execution_payload_proof": {
+      "branch": [
+        "0xfb0d2c0300000000000000000000000000000000000000000000000000000000",
+        "0x109f1ebb3754a553f8372252bf6d7c962ef7a537bf5134530bb60593bca1eddf",
+        "0xdb56114e00fdd4c1f85c892bf35ac9a89289aaecb1ebd0a96cde606a748b5d71",
+        "0xa3a11facbf1d484b0ea149f901d9e563d512e15093c4b00231af68eb1e06e9db",
+        "0x81587d91af22f2bee1f7840d06d5403c3132674c9ea3e9dceb8fc49384490369"
+      ],
+      "generalized_index": 56,
+      "leaf": "0x25b7befd7a1d050dba63e995eb0ba207f1a93b3b15b77838d5179570e34065d1",
+      "local_index": 24,
+      "root": "0x7688551bb6747dc6a456a7254af5a96b6d6b1f0e6dcb1b73a9f5fd7bceaaa704"
+    },
+    "hist_state_root_proof": {
+      "branch": [
+        "0xf3b26bb5fa9309addbd2189a6cb12327c9f6f0b1790642e1f0a3bc3c2ffb50f5",
+        "0x5f1e9374170f164e17faf8f1e47f13ee9c3133ad82b7efcfbdb09cf3c2452f05",
+        "0xb79dbb601d18a23e78c2319f77e3de9dcc423497f93a3ee225cfcc2ffdb44576",
+        "0x1f34c60f224c82fdcd4343dafc705abc3b897f1f4fb2cbb90c0cac52217bf231",
+        "0x77a723f00b215d6624aaa003143273d42544b390d37f140a13ed736d99f3e9ef",
+        "0xc4975e6f003f538bb3fea57ac716dba98b3dcae3859f59516598d8d6d1387b5d",
+        "0xd83d8d459c2ff1d8392ecb1b31c04dd77ff0b962621de122943d71c40b6e0b1d",
+        "0xa23eba85b51c844fde72c2ddba605c0f8ef26f4ea6899d0756a9b58a251c7699",
+        "0xd578cc8bbaba433cd7e0ff846e30ce6576c0f1309c9b88b6d3849cc479fae612",
+        "0x117e9e9557939b396f3b01b0131360d5f45604ff030d721b9c493d5d520149c1",
+        "0x9a2839467f7685b8b95fa66d792a4719a69926857a245e3acacf07dd37d53db5",
+        "0xcf1adf5c6f922870a89fe4abea4dddee2134f07a07367cc65b74c9bd4d5f83ca",
+        "0x7f95247c564a48f1a2b6f321e5a80ae7655b1c4e76caf843a00b04b6f7675511",
+        "0x4df6b89755125d4f6c5575039a04e22301a5a49ee893c1d27e559e3eeab73da7",
+        "0x7a8d34f693bf69ef45732cd264c84b56b4f64175103dec8a5b7c94bc0eab9308",
+        "0x1d89457667c3810985cc35772d3bfe901c648918c36bbff3ca5c26f0196e10a2",
+        "0xee3387c6aca70e9bbb7cd7baefb22b21ccacbe053fa003c079abfaf9bc7383b7",
+        "0x7c8caa41654e3a73f0f4c5a1ad7410dadd02f83b0a24da90a18cec3c5bbf37e8"
+      ],
+      "generalized_index": 319232,
+      "leaf": "0x7688551bb6747dc6a456a7254af5a96b6d6b1f0e6dcb1b73a9f5fd7bceaaa704",
+      "local_index": 57088,
+      "root": "0x5b5b58c88c8bca6a8c3901892e2dfded3ead0a67602cecb9dc0fa2fc4cc7984e"
+    },
+    "type": "RecentHistoricalBlock"
+  }
+}
