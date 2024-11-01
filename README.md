@@ -8,7 +8,7 @@ A smart contract that verifies the integrity of post-Capella historical `blockha
 
 The contract provides the following functions to verify and access historical blockhash values.
 
-- `isBlockhashVerified(_blockhash)`: Returns `true` if the provided `_blockhash` has been verified before.
+- `isBlockhashVerified(blockNumber)`: Returns `blockhash` associated with the provided `blockNumber` if the `_blockhash` has been verified before.
 - `verifyCurrentBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates the `blockhash` of block `x`.
 - `verifyRecentHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within the range `[x - 8192, x - 1]`.
 - `verifyHistoricalBlock()`: Using an SSZ beacon block root (from the EIP 4788 ring buffer) for a given block `x`, validates a `blockhash` of block within the range `[CAPELLA_INIT_BLOCK, x - 8193]`.
@@ -227,7 +227,7 @@ pub struct ExecutionPayloadHeader {
 }
 ```
 
-To summarize, to prove the `blockhash` for slot `x` into the `BeaconBlock` root for slot `n` with `CAPELLA_INIT_SLOT <= x < n - 8192`, we must generate the following SSZ proofs with corresponding local indices and tree heights:
+To summarize, to prove the `blockhash` and `block_number` for slot `x` into the `BeaconBlock` root for slot `n` with `CAPELLA_INIT_SLOT <= x < n - 8192`, we must generate the following SSZ proofs with corresponding local indices and tree heights:
 
 |                                     | Merkleized Data Structure                        | Leaf Node                     | Root Node               | Local Index                                             | Tree Height |
 | ----------------------------------- | ------------------------------------------------ | ----------------------------- | ----------------------- | ------------------------------------------------------- | ----------- |

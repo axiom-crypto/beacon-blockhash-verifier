@@ -119,8 +119,8 @@ contract BeaconBlockhashVerifier {
     /// @param timestamp The EIP-4788 timestamp.
     /// @param currentStateRootProof The proof from the `BeaconState` root into
     /// the beacon block root.
-    /// @param executionPayloadProof The proof from the execution payload into
-    /// the `BeaconState` root.
+    /// @param executionPayloadProof The proof from the `ExecutionPayload` root
+    /// into the `BeaconState` root.
     /// @param blockNumberProof The proof from the execution payload's block
     /// number into the `ExecutionPayload` root. This is used as the index
     /// during persistence of the verified blockhash.
@@ -163,8 +163,8 @@ contract BeaconBlockhashVerifier {
     /// (within `state_roots` Vector) into the `BeaconState` root.
     /// @param historicalStateRootLocalIndex The local index of the historical
     /// state root (relative to the `BeaconState` root).
-    /// @param executionPayloadProof The proof from the execution payload into
-    /// the historical `BeaconState` root.
+    /// @param executionPayloadProof The proof from the `ExecutionPayload` root
+    /// into the `BeaconState` root.
     /// @param blockNumberProof The proof from the execution payload's block
     /// number into the `ExecutionPayload` root. This is used as the index
     /// during persistence of the verified blockhash.
@@ -219,8 +219,8 @@ contract BeaconBlockhashVerifier {
     /// (within the `state_roots` Vector) into the historical state summary root.
     /// @param historicalStateRootLocalIndex The local index of the historical
     /// state root (relative to the state summary root).
-    /// @param executionPayloadProof The proof from the execution payload into
-    /// the historical `BeaconState` root.
+    /// @param executionPayloadProof The proof from the `ExecutionPayload` root
+    /// into the `BeaconState` root.
     /// @param blockNumberProof The proof from the execution payload's block
     /// number into the `ExecutionPayload` root. This is used as the index
     /// during persistence of the verified blockhash.
@@ -451,8 +451,8 @@ contract BeaconBlockhashVerifier {
 
     /// @dev Verifies an `ExecutionPayload` into the `BeaconState` root
     ///
-    /// @param executionPayloadProof The proof from the execution payload into
-    /// the `BeaconState` root.
+    /// @param executionPayloadProof The proof from the `ExecutionPayload` root
+    /// into the `BeaconState` root.
     /// @param beaconStateRoot The `BeaconState` root to reconcile the proof
     /// against.
     function _verifyExecutionPayload(SszProof calldata executionPayloadProof, bytes32 beaconStateRoot) internal view {
