@@ -299,6 +299,76 @@ contract BeaconBlockhashTest is Test {
         _beaconBlockhash.fetchBeaconRoot(0);
     }
 
+    function test_1() public {
+        uint256 t = 1_730_476_739;
+
+        vm.createSelectFork(vm.envString("RPC_URL_1"), 21_093_932);
+        _beaconBlockhash = new BeaconBlockhashVerifierExposed();
+
+        (
+            BeaconBlockhashVerifier.SszProof memory currentStateRootProof,
+            BeaconBlockhashVerifier.SszProof memory historicalStateRootProof,
+            uint256 historicalStateRootLocalIndex,
+            BeaconBlockhashVerifier.SszProof memory executionPayloadProof,
+            BeaconBlockhashVerifier.SszProof memory blockNumberProof,
+            BeaconBlockhashVerifier.SszProof memory blockhashProof
+        ) = _loadRecentHistorical("proofs/1.json");
+
+        _beaconBlockhash.verifyRecentHistoricalBlock({
+            timestamp: t,
+            currentStateRootProof: currentStateRootProof,
+            historicalStateRootProof: historicalStateRootProof,
+            historicalStateRootLocalIndex: historicalStateRootLocalIndex,
+            executionPayloadProof: executionPayloadProof,
+            blockNumberProof: blockNumberProof,
+            blockhashProof: blockhashProof
+        });
+
+        assertEq(
+            _beaconBlockhash.getVerifiedBlockhash(_beaconBlockhash.parseBeBlockNumber(blockNumberProof.leaf)),
+            blockhashProof.leaf
+        );
+    }
+
+    function test_2() public {
+        uint256 t = 1_730_476_499;
+
+        vm.createSelectFork(vm.envString("RPC_URL_1"), 21_093_932);
+        _beaconBlockhash = new BeaconBlockhashVerifierExposed();
+
+        (
+            BeaconBlockhashVerifier.SszProof memory currentStateRootProof,
+            BeaconBlockhashVerifier.SszProof memory summaryRootProof,
+            uint256 stateSummaryRootLocalIndex,
+            BeaconBlockhashVerifier.SszProof memory historicalStateRootProof,
+            uint256 historicalStateRootLocalIndex,
+            BeaconBlockhashVerifier.SszProof memory executionPayloadProof,
+            BeaconBlockhashVerifier.SszProof memory blockNumberProof,
+            BeaconBlockhashVerifier.SszProof memory blockhashProof
+        ) = _loadHistorical("proofs/2.json");
+
+        _beaconBlockhash.verifyHistoricalBlock({
+            timestamp: t,
+            currentStateRootProof: currentStateRootProof,
+            summaryRootProof: summaryRootProof,
+            // summaryRootGIndex: 3_959_423_793,
+            // 3_959_423_793 % 2 ** floor(log_2(3_959_423_793))
+            stateSummaryRootLocalIndex: stateSummaryRootLocalIndex,
+            historicalStateRootProof: historicalStateRootProof,
+            // historicalStateRootGIndex: 16_320,
+            // 16_320 % 2 ** floor(log_2(16_320))
+            historicalStateRootLocalIndex: historicalStateRootLocalIndex,
+            executionPayloadProof: executionPayloadProof,
+            blockNumberProof: blockNumberProof,
+            blockhashProof: blockhashProof
+        });
+
+        assertEq(
+            _beaconBlockhash.getVerifiedBlockhash(_beaconBlockhash.parseBeBlockNumber(blockNumberProof.leaf)),
+            blockhashProof.leaf
+        );
+    }
+
     function _loadCurrent(string memory path)
         internal
         view
